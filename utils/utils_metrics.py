@@ -60,7 +60,7 @@ def compute_mIoU(gt_dir, pred_dir, png_name_list, num_classes, name_classes=None
     gt_imgs = [join(gt_dir, x + ".png") for x in png_name_list]
     pred_imgs = [join(pred_dir, x + ".png") for x in png_name_list]
 
-    for ind in range(len(gt_imjs)):
+    for ind in range(len(gt_imgs)):
         # 关键修改：预测结果强制转为单通道
         pred = np.array(Image.open(pred_imgs[ind]).convert('L'))  # <--- 这里！
         label = np.array(Image.open(gt_imgs[ind]))
