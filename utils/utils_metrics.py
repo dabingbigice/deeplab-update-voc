@@ -54,44 +54,20 @@ def per_class_Precision(hist):
 def per_Accuracy(hist):
     return np.sum(np.diag(hist)) / np.maximum(np.sum(hist), 1) 
 
-def compute_mIoU(gt_dir, pred_dir, png_name_list, num_classes, name_classes=None):  
-    print('Num classes', num_classes)  
-    #-----------------------------------------#
-    #   创建一个全是0的矩阵，是一个混淆矩阵
-    #-----------------------------------------#
+def compute_mIoU(gt_dir, pred_dir, png_name_list, num_classes, name_classes=None):
+    print('Num classes', num_classes)
     hist = np.zeros((num_classes, num_classes))
-    
-    #------------------------------------------------#
-    #   获得验证集标签路径列表，方便直接读取
-    #   获得验证集图像分割结果路径列表，方便直接读取
-    #------------------------------------------------#
-    gt_imgs     = [join(gt_dir, x + ".png") for x in png_name_list]  
-    pred_imgs   = [join(pred_dir, x + ".png") for x in png_name_list]  
+    gt_imgs = [join(gt_dir, x + ".png") for x in png_name_list]
+    pred_imgs = [join(pred_dir, x + ".png") for x in png_name_list]
 
-    #------------------------------------------------#
-    #   读取每一个（图片-标签）对
-    #------------------------------------------------#
-    for ind in range(len(gt_imgs)): 
-        #------------------------------------------------#
-        #   读取一张图像分割结果，转化成numpy数组
-        #------------------------------------------------#
-        pred = np.array(Image.open(pred_imgs[ind]))  
-        #------------------------------------------------#
-        #   读取一张对应的标签，转化成numpy数组
-        #------------------------------------------------#
-        label = np.array(Image.open(gt_imgs[ind]))  
+    for ind in range(len(gt_imjs)):
+        # 关键修改：预测结果强制转为单通道
+        pred = np.array(Image.open(pred_imgs[ind]).convert('L'))  # <--- 这里！
+        label = np.array(Image.open(gt_imgs[ind]))
 
-        # 如果图像分割结果与标签的大小不一样，这张图片就不计算
-        if len(label.flatten()) != len(pred.flatten()):  
-            print(
-                'Skipping: len(gt) = {:d}, len(pred) = {:d}, {:s}, {:s}'.format(
-                    len(label.flatten()), len(pred.flatten()), gt_imgs[ind],
-                    pred_imgs[ind]))
+        if len(label.flatten()) != len(pred.flatten()):
+            print(f'Skipping: len(gt)={len(label.flatten())}, len(pred)={len(pred.flatten())}')
             continue
-
-        #------------------------------------------------#
-        #   对一张图片计算21×21的hist矩阵，并累加
-        #------------------------------------------------#
         hist += fast_hist(label.flatten(), pred.flatten(), num_classes)  
         # 每计算10张就输出一下目前已计算的图片中所有类别平均的mIoU值
         if name_classes is not None and ind > 0 and ind % 10 == 0: 
