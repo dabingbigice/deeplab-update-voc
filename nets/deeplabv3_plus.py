@@ -1138,11 +1138,11 @@ class DeepLab(nn.Module):
             # 第二个融合块：深度可分离卷积 + 空洞卷积
             # --------------------------------
             # 深度卷积（空洞率=4）
-            WTConv2d(in_channels=256, out_channels=128, kernel_size=3),
+            WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
             # 更高空洞率[9,11](@ref)
-            nn.BatchNorm2d(128),
+            nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+            nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1)
