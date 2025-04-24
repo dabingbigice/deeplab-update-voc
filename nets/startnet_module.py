@@ -155,7 +155,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     # 加载 starnet_s1 模型
-    model = starnet_s100(pretrained=False, num_classes=1000).to(device)
+    model = starnet_s050(pretrained=False, num_classes=1000).to(device)
     print("Model loaded successfully.")
     # 模拟输入数据（batch_size=1, 3通道图像，大小为224x224）
     input_tensor = torch.randn(1, 3, 224, 224).to(device)

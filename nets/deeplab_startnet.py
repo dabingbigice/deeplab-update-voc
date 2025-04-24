@@ -89,19 +89,34 @@ class StarBlock(nn.Module):
         self.dwconv = nn.Sequential(
             nn.Conv2d(dim, dim, 7, padding=3, groups=dim, bias=False),
             nn.BatchNorm2d(dim),
-            nn.ReLU6(inplace=True)
+            nn.ReLU6(inplace=True),
+
         )
-        self.proj = nn.Sequential(
+        self.f1 = nn.Sequential(
             nn.Conv2d(dim, dim * 2, 1, bias=False),  # 扩展比例从4x降为2x
             nn.BatchNorm2d(dim * 2),
             nn.ReLU6(inplace=True),
             nn.Conv2d(dim * 2, dim, 1, bias=False),
             nn.BatchNorm2d(dim)
         )
-        self.act = nn.ReLU6(inplace=True)
+
+        self.f2 = nn.Sequential(
+            nn.Conv2d(dim, dim * 2, 1, bias=False),  # 扩展比例从4x降为2x
+            nn.BatchNorm2d(dim * 2),
+            nn.ReLU6(inplace=True),
+            nn.Conv2d(dim * 2, dim, 1, bias=False),
+            nn.BatchNorm2d(dim)
+        )
+
+        self.mish = nn.Mish()  # 正确实例化SELU模块
 
     def forward(self, x):
-        return x + self.act(self.proj(self.dwconv(x)))
+        x = self.dwconv(x)
+
+        x1, x2 = self.f1(x), self.f2(x)
+        x3 = self.mish(x1) * x2
+
+        return x + x3
 
 
 # 测试输出
@@ -109,5 +124,6 @@ if __name__ == "__main__":
     model = StarNet(pretrained=False)
     x = torch.randn(2, 3, 512, 512)
     low, deep = model(x)
+    print(model)
     print(f"浅层特征尺寸: {low.shape}")  # [2, 12, 128, 128]
     print(f"深层特征尺寸: {deep.shape}")  # [2, 160, 64, 64]
