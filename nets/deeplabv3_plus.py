@@ -935,7 +935,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             x
         ], dim=1)
 
-        return branch1_out + self.act(branch1_out) * self.fusion(concat_feat)
+        return concat_feat + self.act(concat_feat) * self.fusion(concat_feat)
 
 
 class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
