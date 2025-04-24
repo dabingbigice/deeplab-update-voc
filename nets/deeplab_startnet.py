@@ -17,18 +17,18 @@ class StarNet(nn.Module):
         )
 
         # 构建特征提取阶段
-        self.stage1 = self._make_stage(32, 64, self.stage_config[0], stride=2)
-        self.stage2 = self._make_stage(64, 128, self.stage_config[1], stride=2)
+        self.stage1 = self._make_stage(32, 24, self.stage_config[0], stride=2)
+        self.stage2 = self._make_stage(24, 128, self.stage_config[1], stride=2)
         self.stage3 = self._make_stage(128, 256, self.stage_config[2], stride=2)
-        self.stage4 = self._make_stage(256, 512, self.stage_config[3], stride=1)  # 最后一层不下采样
+        self.stage4 = self._make_stage(256, 320, self.stage_config[3], stride=1)  # 最后一层不下采样
 
         # 加载预训练权重 [1](@ref)
         if pretrained:
             self._load_pretrained(version)
 
         # 通道数配置（根据DeepLab需求）
-        self.low_level_channels = 64  # 对应stage1输出通道
-        self.aspp_channels = 512  # 对应stage4输出通道
+        self.low_level_channels = 24  # 对应stage1输出通道
+        self.aspp_channels = 320  # 对应stage4输出通道
 
     def _make_stage(self, in_ch, out_ch, num_blocks, stride):
         """ 构建网络阶段 """
