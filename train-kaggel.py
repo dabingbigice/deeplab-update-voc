@@ -244,8 +244,8 @@ if __name__ == "__main__":
     #   num_classes = 3
     #   cls_weights = np.array([1, 2, 3], np.float32)
     #------------------------------------------------------------------#
-    # cls_weights     = np.ones([num_classes], np.float32)
-    cls_weights = np.array([1, 4, 2], np.float32)
+    cls_weights     = np.ones([num_classes], np.float32)
+    # cls_weights = np.array([1, 4, 2], np.float32)
     #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据，1代表关闭多线程
     #                   开启后会加快数据读取速度，但是会占用更多内存
