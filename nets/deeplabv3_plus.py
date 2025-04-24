@@ -882,11 +882,14 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         )
 
         # --------------------------------
-        # 分支5: 全局池化 + 通道调整
+        # 分支4: 9x9卷积 + 通道调整
+
         # --------------------------------
-        self.branch5 = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            # 直接输出dim_out ↓↓↓
+        self.branch4 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=9),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
             nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
             ChannelShuffle(groups=2),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
@@ -902,6 +905,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             nn.ReLU(inplace=True),
             LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
         )
+        self.act = nn.ReLU6(inplace=True)
 
     def forward(self, x):
         b, c, h, w = x.size()
@@ -932,7 +936,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             x
         ], dim=1)
 
-        return self.fusion(concat_feat)
+        return x + self.act(x) * self.fusion(concat_feat)
 
 
 class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
