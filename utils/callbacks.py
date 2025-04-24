@@ -173,6 +173,8 @@ class EvalCallback():
                 image.save(os.path.join(pred_dir, image_id + ".png"))
                         
             print("Calculate miou.")
+            # gt= segclass
+            # pre = predict
             _, IoUs, _, _ = compute_mIoU(gt_dir, pred_dir, self.image_ids, self.num_classes, None)  # 执行计算mIoU的函数
             temp_miou = np.nanmean(IoUs) * 100
 
