@@ -74,7 +74,7 @@ if __name__ == "__main__":
     #   num_classes     训练自己的数据集必须要修改的
     #                   自己需要的分类个数+1，如2+1
     #-----------------------------------------------------#
-    num_classes     = 21
+    num_classes     = 3
     #---------------------------------#
     #   所使用的的主干网络：
     #   mobilenet
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     #   VOCdevkit_path  数据集路径
     #------------------------------------------------------------------#
-    VOCdevkit_path  = '/kaggle/input/d/labkust/voctrainval-11-may-2012/VOCtrainval_11-May-2012/VOCdevkit'
+    VOCdevkit_path  = '/kaggle/input/hutao-dataset/VOCdevkit'
     #------------------------------------------------------------------#
     #   建议选项：
     #   种类少（几类）时，设置为True
@@ -244,8 +244,8 @@ if __name__ == "__main__":
     #   num_classes = 3
     #   cls_weights = np.array([1, 2, 3], np.float32)
     #------------------------------------------------------------------#
-    cls_weights     = np.ones([num_classes], np.float32)
-    # cls_weights = np.array([1, 4, 2], np.float32)
+    # cls_weights     = np.ones([num_classes], np.float32)
+    cls_weights = np.array([1, 4, 2], np.float32)
     #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据，1代表关闭多线程
     #                   开启后会加快数据读取速度，但是会占用更多内存

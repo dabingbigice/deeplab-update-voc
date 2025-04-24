@@ -897,43 +897,165 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         # 融合层（输入通道应为dim_out*5=1280）
         # --------------------------------
         self.fusion = nn.Sequential(
-            nn.Conv2d(dim_out * 5+dim_in, dim_out, 1, bias=False),
+            nn.Conv2d(dim_out * 5 + dim_in, dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
             LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
         )
 
+    def forward(self, x):
+        b, c, h, w = x.size()
+
+        # 分支1处理流程
+        branch1_out = self.branch1(x)
+
+        # 分支2处理流程
+        branch2_out = self.branch2(x)
+
+        # 分支3处理流程
+        branch3_out = self.branch3(x)
+
+        # 分支4处理流程
+        branch4_out = self.branch4(x)
+
+        # 分支5处理流程
+        global_feat = self.branch5(x)
+        global_feat = F.interpolate(global_feat, (h, w), mode='bilinear', align_corners=True)
+
+        # 特征拼接与融合
+        concat_feat = torch.cat([
+            branch1_out,
+            branch2_out,
+            branch3_out,
+            branch4_out,
+            global_feat,
+            x
+        ], dim=1)
+
+        return self.fusion(concat_feat)
+
+
+class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
+    def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
+        super().__init__()
+        self.dim_in = dim_in
+        self.dim_out = dim_out
+
+        # --------------------------------
+        # 分支1: 1x1卷积 + 通道调整
+        # --------------------------------
+        self.branch1 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=1),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 新增通道调整层 ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, bias=False),
+            nn.BatchNorm2d(dim_out),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支2: 3x3卷积 + 通道调整
+        # --------------------------------
+        self.branch2 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=3),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支3: 5x5卷积 + 通道调整
+        # --------------------------------
+        self.branch3 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=5),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支4: 7x7卷积 + 通道调整
+        # --------------------------------
+        self.branch4 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=7),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支5: 全局池化 + 通道调整
+        # --------------------------------
+        self.branch5 = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            # 直接输出dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 融合层（输入通道应为dim_out*5=1280）
+        # --------------------------------
+        self.fusion = nn.Sequential(
+            nn.Conv2d(dim_out * 5 + dim_in, dim_out, 1, bias=False),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
+        )
 
     def forward(self, x):
-            b, c, h, w = x.size()
+        b, c, h, w = x.size()
 
-            # 分支1处理流程
-            branch1_out = self.branch1(x)
+        # 分支1处理流程
+        branch1_out = self.branch1(x)
+        # 分支2处理流程
+        branch2_out = self.branch2(x)
 
-            # 分支2处理流程
-            branch2_out = self.branch2(x)
+        x1 = nn.ReLU6(branch1_out) * branch2_out
 
-            # 分支3处理流程
-            branch3_out = self.branch3(x)
+        # 分支3处理流程
+        branch3_out = self.branch3(x)
 
-            # 分支4处理流程
-            branch4_out = self.branch4(x)
+        x2 = nn.ReLU6(branch2_out) * branch3_out
 
-            # 分支5处理流程
-            global_feat = self.branch5(x)
-            global_feat = F.interpolate(global_feat, (h, w), mode='bilinear', align_corners=True)
+        # 分支4处理流程
+        branch4_out = self.branch4(x)
 
-            # 特征拼接与融合
-            concat_feat = torch.cat([
-                branch1_out,
-                branch2_out,
-                branch3_out,
-                branch4_out,
-                global_feat,
-                x
-            ], dim=1)
+        x3 = nn.ReLU6(branch3_out) * branch4_out
 
-            return self.fusion(concat_feat)
+        # 分支5处理流程
+        global_feat = self.branch5(x)
+        global_feat = F.interpolate(global_feat, (h, w), mode='bilinear', align_corners=True)
+
+        x4 = nn.ReLU6(branch4_out) * global_feat
+        x5 = nn.ReLU6(global_feat) * branch1_out
+
+        # 特征拼接与融合
+        concat_feat = torch.cat([
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x
+        ], dim=1)
+
+        return self.fusion(concat_feat)
 
 
 class DeepLab(nn.Module):
