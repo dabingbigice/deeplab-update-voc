@@ -923,8 +923,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         branch4_out = self.branch4(x)
 
         # 分支5处理流程
-        global_feat = self.branch5(x)
-        global_feat = F.interpolate(global_feat, (h, w), mode='bilinear', align_corners=True)
+        branch5_out = self.branch5(x)
 
         # 特征拼接与融合
         concat_feat = torch.cat([
@@ -932,7 +931,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             branch2_out,
             branch3_out,
             branch4_out,
-            global_feat,
+            branch5_out,
             x
         ], dim=1)
 
