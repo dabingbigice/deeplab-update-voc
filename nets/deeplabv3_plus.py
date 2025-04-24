@@ -1020,30 +1020,30 @@ class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
 
     def forward(self, x):
         b, c, h, w = x.size()
-
+        rx=nn.ReLU(x)
         # 分支1处理流程
         branch1_out = self.branch1(x)
         # 分支2处理流程
         branch2_out = self.branch2(x)
 
-        x1 = nn.ReLU(x) * branch2_out
+        x1 = rx * branch2_out
 
         # 分支3处理流程
         branch3_out = self.branch3(x)
 
-        x2 = nn.ReLU(x) * branch3_out
+        x2 = rx * branch3_out
 
         # 分支4处理流程
         branch4_out = self.branch4(x)
 
-        x3 = nn.ReLU(x) * branch4_out
+        x3 = rx * branch4_out
 
         # 分支5处理流程
         global_feat = self.branch5(x)
         global_feat = F.interpolate(global_feat, (h, w), mode='bilinear', align_corners=True)
 
-        x4 = nn.ReLU(x) * global_feat
-        x5 = nn.ReLU(x) * branch1_out
+        x4 = rx * global_feat
+        x5 = rx * branch1_out
 
         # 特征拼接与融合
         concat_feat = torch.cat([
@@ -1052,9 +1052,10 @@ class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
             x3,
             x4,
             x5,
+            x
         ], dim=1)
 
-        return x + self.fusion(concat_feat)
+        return self.fusion(concat_feat)
 
 
 class DeepLab(nn.Module):

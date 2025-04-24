@@ -108,11 +108,9 @@ class StarBlock(nn.Module):
 
     def forward(self, x):
         x1 = self.dwconv(x)
-
-        x1=self.f1(x1)
+        x1 = self.f1(x1)
         x1 = self.relu(x) * x1
-
-        return x + x1
+        return x1
 
 
 # 测试输出
