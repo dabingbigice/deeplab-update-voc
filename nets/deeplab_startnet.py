@@ -97,20 +97,22 @@ class StarBlock(nn.Module):
             nn.BatchNorm2d(dim * 2),
             nn.ReLU6(inplace=True),
             nn.Conv2d(dim * 2, dim, 1, bias=False),
-            nn.BatchNorm2d(dim)
+            nn.BatchNorm2d(dim),
+            nn.ReLU6(inplace=True),
+
         )
 
 
 
-        self.mish = nn.Mish()  # 正确实例化SELU模块
+        self.relu = nn.ReLU()  # 正确实例化SELU模块
 
     def forward(self, x):
-        x = self.dwconv(x)
+        x1 = self.dwconv(x)
 
-        x1, x2 = self.f1(x), self.f1(x)
-        x3 = self.mish(x1) * x2
+        x1=self.f1(x1)
+        x1 = self.relu(x) * x1
 
-        return x + x3
+        return x + x1
 
 
 # 测试输出
