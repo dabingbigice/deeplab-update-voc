@@ -152,6 +152,21 @@ def mobilenetv2(pretrained=False, **kwargs):
     return model
 
 if __name__ == "__main__":
-    model = mobilenetv2()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    # 加载 starnet_s1 模型
+    # 模拟输入数据（batch_size=1, 3通道图像，大小为224x224）
+    input_tensor = torch.randn(1, 3, 224, 224).to(device)
+    model = mobilenetv2().to(device)
+    print("Model loaded successfully.")
+
     for i, layer in enumerate(model.features):
         print(i, layer)
+
+    # 模型推理
+    with torch.no_grad():  # 关闭梯度计算
+        model.eval()  # 设置模型为评估模式
+        output = model(input_tensor)
+    # 打印输出结果形状
+    print(model)
+    print(f"Output shape: {output.shape}")

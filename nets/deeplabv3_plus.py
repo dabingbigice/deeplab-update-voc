@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 from functools import partial
 from nets.LRSAmodule import LRSA
-
+from nets.deeplab_startnet import StarNet
 
 class ShuffleNetV2(nn.Module):
     def __init__(self, downsample_factor=8, pretrained=True):
@@ -923,6 +923,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         return self.fusion(concat_feat)
 
 
+
 class DeepLab(nn.Module):
     def __init__(self, num_classes, backbone="mobilenet", pretrained=True, downsample_factor=8):
         super(DeepLab, self).__init__()
@@ -953,6 +954,10 @@ class DeepLab(nn.Module):
             self.backbone = ShuffleNetV2(downsample_factor=downsample_factor, pretrained=pretrained)
             in_channels = 320
             low_level_channels = 24
+        elif backbone == "startnet":
+            self.backbone = StarNet(downsample_factor=8, pretrained=pretrained)
+            in_channels = 512  # 对应stage4输出通道
+            low_level_channels = 64  # 对应stage1输出通道
         else:
             raise ValueError('Unsupported backbone - `{}`, Use mobilenet, xception.'.format(backbone))
 
