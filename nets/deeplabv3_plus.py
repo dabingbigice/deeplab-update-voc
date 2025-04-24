@@ -1026,24 +1026,24 @@ class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
         # 分支2处理流程
         branch2_out = self.branch2(x)
 
-        x1 = nn.ReLU6(branch1_out) * branch2_out
+        x1 = nn.FReLU(branch1_out) * branch2_out
 
         # 分支3处理流程
         branch3_out = self.branch3(x)
 
-        x2 = nn.ReLU6(branch2_out) * branch3_out
+        x2 = nn.FReLU(branch2_out) * branch3_out
 
         # 分支4处理流程
         branch4_out = self.branch4(x)
 
-        x3 = nn.ReLU6(branch3_out) * branch4_out
+        x3 = nn.FReLU(branch3_out) * branch4_out
 
         # 分支5处理流程
         global_feat = self.branch5(x)
         global_feat = F.interpolate(global_feat, (h, w), mode='bilinear', align_corners=True)
 
-        x4 = nn.ReLU6(branch4_out) * global_feat
-        x5 = nn.ReLU6(global_feat) * branch1_out
+        x4 = nn.FReLU(branch4_out) * global_feat
+        x5 = nn.FReLU(global_feat) * branch1_out
 
         # 特征拼接与融合
         concat_feat = torch.cat([
