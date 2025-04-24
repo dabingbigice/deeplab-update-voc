@@ -999,7 +999,7 @@ class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
         # --------------------------------
         # 分支5: 全局池化 + 通道调整
         # --------------------------------
-        self.branch4 = nn.Sequential(
+        self.branch5 = nn.Sequential(
             WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=9),
             nn.BatchNorm2d(dim_in, momentum=bn_mom),
             nn.ReLU(inplace=True),
