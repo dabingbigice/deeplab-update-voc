@@ -999,7 +999,7 @@ class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
         # --------------------------------
         # 分支5: 全局池化 + 通道调整
         # --------------------------------
-        self.branch5 = nn.Sequential(
+        self.branch4 = nn.Sequential(
             WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=9),
             nn.BatchNorm2d(dim_in, momentum=bn_mom),
             nn.ReLU(inplace=True),
@@ -1091,19 +1091,19 @@ class DeepLab(nn.Module):
             LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
         )
 
-        self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=256, rate=16 // downsample_factor)
+        self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
-        self.aspp_last_concat_fusion = nn.Sequential(
-            nn.Conv2d(in_channels + 256, 256, kernel_size=1, bias=False),
-            nn.BatchNorm2d(256, momentum=0.9),
-            nn.ReLU(inplace=True)
-        )
+        # self.aspp_last_concat_fusion = nn.Sequential(
+        #     nn.Conv2d(in_channels + 256, 256, kernel_size=1, bias=False),
+        #     nn.BatchNorm2d(256, momentum=0.9),
+        #     nn.ReLU(inplace=True)
+        # )
         # ----------------------------------#
         #   浅层特征边
         # ----------------------------------#
         self.shortcut_conv = nn.Sequential(
-            nn.Conv2d(low_level_channels, 48, 1),
-            nn.BatchNorm2d(48),
+            nn.Conv2d(low_level_channels, 24, 1),
+            nn.BatchNorm2d(24),
             nn.ReLU(inplace=True),
 
         )
@@ -1127,27 +1127,27 @@ class DeepLab(nn.Module):
             # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
             # --------------------------------
             # 深度卷积（空洞率=2）
-            WTConv2d(in_channels=304, out_channels=304, kernel_size=3),
+            WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
             # Depthwise卷积[1,6](@ref)
-            nn.BatchNorm2d(304),
+            nn.BatchNorm2d(152),
             nn.ReLU(inplace=True),
-            nn.Conv2d(304, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+            nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             # --------------------------------
             # 第二个融合块：深度可分离卷积 + 空洞卷积
             # --------------------------------
             # 深度卷积（空洞率=4）
-            WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
+            WTConv2d(in_channels=256, out_channels=128, kernel_size=3),
             # 更高空洞率[9,11](@ref)
-            nn.BatchNorm2d(256),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
-            nn.BatchNorm2d(256),
+            nn.Conv2d(128, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1)
         )
-        self.cls_conv = nn.Conv2d(256, num_classes, 1)
+        self.cls_conv = nn.Conv2d(128, num_classes, 1)
 
     def forward(self, x):
         H, W = x.size(2), x.size(3)
