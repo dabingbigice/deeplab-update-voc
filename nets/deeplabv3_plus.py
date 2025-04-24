@@ -1052,10 +1052,9 @@ class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
             x3,
             x4,
             x5,
-            x
         ], dim=1)
 
-        return self.fusion(concat_feat)
+        return x + self.fusion(concat_feat)
 
 
 class DeepLab(nn.Module):
