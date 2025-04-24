@@ -101,6 +101,15 @@ class StarBlock(nn.Module):
             nn.ReLU6(inplace=True),
 
         )
+        self.f2 = nn.Sequential(
+            nn.Conv2d(dim, dim * 2, 1, bias=False),  # 扩展比例从4x降为2x
+            nn.BatchNorm2d(dim * 2),
+            nn.ReLU6(inplace=True),
+            nn.Conv2d(dim * 2, dim, 1, bias=False),
+            nn.BatchNorm2d(dim),
+            nn.ReLU6(inplace=True),
+
+        )
 
 
 
@@ -108,8 +117,9 @@ class StarBlock(nn.Module):
 
     def forward(self, x):
         x1 = self.dwconv(x)
-        x1 = self.f1(x1)
-        x1 = self.relu(x) * x1
+        x2 = self.f1(x1)
+        x3 = self.f2(x1)
+        x1 = self.relu(x2) * x3
         return x1
 
 
