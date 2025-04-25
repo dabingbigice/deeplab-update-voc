@@ -834,7 +834,6 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             nn.Conv2d(dim_in, dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out),
             nn.ReLU(inplace=True),
-
         )
 
         # --------------------------------
@@ -933,9 +932,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             branch5_out,
         ], dim=1)
 
-        x = self.adjust(x)
-
-        return x + self.act(x) * self.act(self.fusion(concat_feat))
+        return branch1_out + self.act(branch1_out) * self.act(self.fusion(concat_feat))
 
         # class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
         #     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
