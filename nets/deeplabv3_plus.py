@@ -830,8 +830,12 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         # 分支1: 1x1卷积 + 通道调整
         # --------------------------------
         self.branch1 = nn.Sequential(
-            nn.Conv2d(dim_in, dim_out, 1, padding=0, bias=False),
-            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=1),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 新增通道调整层 ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, bias=False),
+            nn.BatchNorm2d(dim_out),
             nn.ReLU(inplace=True),
 
         )
@@ -897,12 +901,13 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         # 融合层（输入通道应为dim_out*5=1280）
         # --------------------------------
         self.fusion = nn.Sequential(
-            nn.Conv2d(dim_out * 5 + dim_in, dim_out, 1, bias=False),
+            nn.Conv2d(dim_out * 5 , dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
             LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
         )
         self.act = nn.ReLU6(inplace=True)
+        self.adjust = nn.Conv2d(dim_in, dim_out, 1)
 
     def forward(self, x):
         b, c, h, w = x.size()
@@ -929,10 +934,11 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             branch3_out,
             branch4_out,
             branch5_out,
-            x
         ], dim=1)
 
-        return branch1_out + self.act(branch1_out) * self.act(self.fusion(concat_feat))
+        x = self.adjust(x)
+
+        return x + self.act(x) * self.act(self.fusion(concat_feat))
 
         # class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
         #     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
