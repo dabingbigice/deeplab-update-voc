@@ -900,12 +900,13 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         # 融合层（输入通道应为dim_out*5=1280）
         # --------------------------------
         self.fusion = nn.Sequential(
-            nn.Conv2d(dim_out * 5 + dim_in, dim_out, 1, bias=False),
+            nn.Conv2d(dim_out * 5 , dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
             LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
         )
         self.act = nn.ReLU6(inplace=True)
+        self.adjust = nn.Conv2d(dim_in, dim_out, 1)
 
     def forward(self, x):
         b, c, h, w = x.size()
@@ -932,10 +933,11 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             branch3_out,
             branch4_out,
             branch5_out,
-            x
         ], dim=1)
-        x = self.fusion(concat_feat)
-        return branch1_out + self.act(x) * x
+
+        x = self.adjust(x)
+
+        return x + self.act(x) * self.act(self.fusion(concat_feat))
 
 
 class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
@@ -1096,11 +1098,11 @@ class DeepLab(nn.Module):
 
         self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
-        # self.aspp_last_concat_fusion = nn.Sequential(
-        #     nn.Conv2d(in_channels + 256, 256, kernel_size=1, bias=False),
-        #     nn.BatchNorm2d(256, momentum=0.9),
-        #     nn.ReLU(inplace=True)
-        # )
+        self.aspp_last_concat_fusion = nn.Sequential(
+            nn.Conv2d(in_channels + 128, 128, kernel_size=1, bias=False),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.ReLU(inplace=True)
+        )
         # ----------------------------------#
         #   浅层特征边
         # ----------------------------------#
@@ -1163,8 +1165,8 @@ class DeepLab(nn.Module):
 
         x = self.aspp_lrsa(x_aspp_before)
         x = self.aspp(x)
-        # x = torch.cat([x_aspp_before, x], dim=1)
-        # x = self.aspp_last_concat_fusion(x)
+        x = torch.cat([x_aspp_before, x], dim=1)
+        x = self.aspp_last_concat_fusion(x)
         low_level_features = self.shortcut_conv(low_level_features)
 
         # -----------------------------------------#
