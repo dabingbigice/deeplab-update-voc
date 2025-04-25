@@ -928,6 +928,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             branch3_out,
             branch4_out,
             branch5_out,
+            x
         ], dim=1)
 
 
