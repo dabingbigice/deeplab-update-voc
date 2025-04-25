@@ -903,6 +903,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
         )
         self.act = nn.ReLU6(inplace=True)
+        self.adjust = nn.Conv2d(dim_in, dim_out, 1)
 
     def forward(self, x):
         b, c, h, w = x.size()
@@ -932,9 +933,9 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             x
         ], dim=1)
 
+        x1 = self.adjust(x)
 
-
-        return branch1_out + self.act(branch1_out) * self.act(self.fusion(concat_feat))
+        return x1 + self.act(x1) * self.act(self.fusion(concat_feat))
 
         # class ASPP_startbranch_group_point_conv_concat_before(nn.Module):
         #     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
