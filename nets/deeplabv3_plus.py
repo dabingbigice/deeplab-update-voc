@@ -1098,11 +1098,11 @@ class DeepLab(nn.Module):
 
         self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
-        self.aspp_last_concat_fusion = nn.Sequential(
-            nn.Conv2d(in_channels + 128, 128, kernel_size=1, bias=False),
-            nn.BatchNorm2d(128, momentum=0.9),
-            nn.ReLU(inplace=True)
-        )
+        # self.aspp_last_concat_fusion = nn.Sequential(
+        #     nn.Conv2d(in_channels + 128, 128, kernel_size=1, bias=False),
+        #     nn.BatchNorm2d(128, momentum=0.9),
+        #     nn.ReLU(inplace=True)
+        # )
         # ----------------------------------#
         #   浅层特征边
         # ----------------------------------#
@@ -1165,8 +1165,8 @@ class DeepLab(nn.Module):
 
         x = self.aspp_lrsa(x_aspp_before)
         x = self.aspp(x)
-        x = torch.cat([x_aspp_before, x], dim=1)
-        x = self.aspp_last_concat_fusion(x)
+        # x = torch.cat([x_aspp_before, x], dim=1)
+        # x = self.aspp_last_concat_fusion(x)
         low_level_features = self.shortcut_conv(low_level_features)
 
         # -----------------------------------------#
