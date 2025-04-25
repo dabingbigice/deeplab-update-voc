@@ -897,7 +897,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         # 融合层（输入通道应为dim_out*5=1280）
         # --------------------------------
         self.fusion = nn.Sequential(
-            nn.Conv2d(dim_out * 5+dim_in, dim_out, 1, bias=False),
+            nn.Conv2d(dim_out * 5 + dim_in, dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
             LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
@@ -930,6 +930,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             branch3_out,
             branch4_out,
             branch5_out,
+            x
         ], dim=1)
 
         x = self.adjust(x)
