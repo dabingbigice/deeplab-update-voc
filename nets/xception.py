@@ -132,8 +132,8 @@ class Xception(nn.Module):
 
         self.conv5 = SeparableConv2d(1536,2048,3,1,1*rate,dilation=rate,activate_first=False)
         self.layers = []
-        self.adjust_x = nn.Conv2d(320, 96, 1)
-        self.adjust_low = nn.Conv2d(24, 12, 1)
+        self.adjust_x = nn.Conv2d(2048, 96, 1)
+        self.adjust_low = nn.Conv2d(256, 12, 1)
 
         #------- init weights --------
         for m in self.modules():
