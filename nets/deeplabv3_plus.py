@@ -92,6 +92,68 @@ class ShuffleNetV2(nn.Module):
         return low_level_features, x
 
 
+import torch.nn as nn
+import torchvision.models as models
+
+
+class ResNet18(nn.Module):
+    def __init__(self, downsample_factor=8, pretrained=True):
+        super(ResNet18, self).__init__()
+        # 加载预训练ResNet18主干网络
+        resnet = models.resnet18(pretrained=pretrained)
+
+        # 提取特征层（去除最后两层：avgpool和fc）
+        self.features = nn.Sequential(
+            resnet.conv1,
+            resnet.bn1,
+            resnet.relu,
+            resnet.maxpool,
+            resnet.layer1,  # 输出通道64
+            resnet.layer2,  # 输出通道128
+            resnet.layer3,  # 输出通道256
+            resnet.layer4  # 输出通道512
+        )
+
+        # 空洞卷积配置（适配不同下采样因子）
+        self.down_idx = [3, 4, 5, 6]  # 对应layer1~layer4的索引位置
+        # if downsample_factor == 8:
+        #     # 对layer3和layer4设置空洞卷积
+        #     self._set_dilation(self.features[5], dilate=0)  # layer3
+        #     self._set_dilation(self.features[6], dilate=0)  # layer4
+        # elif downsample_factor == 16:
+        #     self._set_dilation(self.features[6], dilate=0)  # layer4
+
+        # 特征维度调整层（适配ResNet18输出通道）
+        self.adjust_x = nn.Conv2d(512, 96, 1)  # 调整高层特征通道
+        self.adjust_low = nn.Conv2d(64, 12, 1)  # 调整低层特征通道
+
+    def _set_dilation(self, layer, dilate):
+        """修改残差块的卷积参数实现空洞卷积"""
+        for block in layer.children():
+            if isinstance(block, models.resnet.BasicBlock):
+                # 调整两个卷积层的dilation参数
+                for conv in [block.conv1, block.conv2]:
+                    if conv.kernel_size == (3, 3):
+                        conv.dilation = (dilate, dilate)
+                        conv.padding = (dilate, dilate)
+                # 调整跳跃连接的卷积（如果存在）
+                if block.downsample is not None:
+                    block.downsample[0].stride = (1, 1)
+
+    def forward(self, x):
+        # 提取低层特征（layer1输出）
+        low_level_features = self.features[:4](x)  # [conv1,bn1,relu,maxpool]
+        # 提取高层特征
+        x = self.features[4:](low_level_features)  # 经过layer1~layer4
+
+        # 调整特征维度
+        x = self.adjust_x(x)
+        low_level_features = self.adjust_low(low_level_features)
+
+        return low_level_features, x
+
+
+
 class MobileNetV2(nn.Module):
     def __init__(self, downsample_factor=8, pretrained=True):
         super(MobileNetV2, self).__init__()
@@ -1085,6 +1147,11 @@ class DeepLab(nn.Module):
             low_level_channels = 12
         elif backbone == "startnet":
             self.backbone = StarNet(downsample_factor=8, pretrained=pretrained)
+            in_channels = 96  # 对应stage4输出通道
+            low_level_channels = 12  # 对应stage1输出通道
+
+        elif backbone == "resnet":
+            self.backbone = ResNet18(downsample_factor=8, pretrained=pretrained)
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         else:
