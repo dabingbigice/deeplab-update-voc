@@ -28,6 +28,7 @@ class StarNet(nn.Module):
                                        self.stage_config[2], stride=2)
         self.stage4 = self._make_stage(int(256 * self.width_ratio), int(320 * self.width_ratio),
                                        self.stage_config[3], stride=1)
+        self.adjust_channles_96 = nn.Conv2d(160, 96, 1)
 
         # 加载预训练权重（需要适配s050结构）
         if pretrained:
@@ -77,6 +78,7 @@ class StarNet(nn.Module):
         x = self.stage2(low_level_feat)
         x = self.stage3(x)
         x_aspp_before = self.stage4(x)
+        x_aspp_before = self.adjust_channles_96(x_aspp_before)
         return low_level_feat, x_aspp_before
 
 

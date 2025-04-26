@@ -1079,7 +1079,7 @@ class DeepLab(nn.Module):
             low_level_channels = 24
         elif backbone == "startnet":
             self.backbone = StarNet(downsample_factor=8, pretrained=pretrained)
-            in_channels = 160  # 对应stage4输出通道
+            in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         else:
             raise ValueError('Unsupported backbone - `{}`, Use mobilenet, xception.'.format(backbone))
