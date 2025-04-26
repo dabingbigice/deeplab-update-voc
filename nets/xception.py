@@ -132,6 +132,8 @@ class Xception(nn.Module):
 
         self.conv5 = SeparableConv2d(1536,2048,3,1,1*rate,dilation=rate,activate_first=False)
         self.layers = []
+        self.adjust_x = nn.Conv2d(320, 96, 1)
+        self.adjust_low = nn.Conv2d(24, 12, 1)
 
         #------- init weights --------
         for m in self.modules():
@@ -155,6 +157,7 @@ class Xception(nn.Module):
         x = self.block1(x)
         x = self.block2(x)
         low_featrue_layer = self.block2.hook_layer
+        low_featrue_layer = self.adjust_low(low_featrue_layer)
         x = self.block3(x)
         x = self.block4(x)
         x = self.block5(x)
@@ -179,6 +182,8 @@ class Xception(nn.Module):
         x = self.conv4(x)
         
         x = self.conv5(x)
+        x = self.adjust_x(x)
+
         return low_featrue_layer,x
 
 def load_url(url, model_dir='./model_data', map_location=None):

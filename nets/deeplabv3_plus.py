@@ -27,8 +27,8 @@ class ShuffleNetV2(nn.Module):
             state_dict = torch.load('shufflenetv2_x1.pth')
             model.load_state_dict(state_dict, strict=False)
         self.channel_adjust = nn.Sequential(
-            nn.Conv2d(1024, 320, 1),
-            nn.BatchNorm2d(320),
+            nn.Conv2d(1024, 96, 1),
+            nn.BatchNorm2d(96),
             nn.ReLU()
         )
         # 构建特征序列
@@ -44,7 +44,8 @@ class ShuffleNetV2(nn.Module):
         # 确定下采样层索引（示例值，需根据实际结构调整）
         self.total_idx = len(self.features)
         self.down_idx = [3, 4, 7, 14]  # 示例索引，需根据实际模型结构调整
-
+        self.adjust_x = nn.Conv2d(320, 96, 1)
+        self.adjust_low = nn.Conv2d(24, 12, 1)
         # 调整下采样策略
         if downsample_factor == 8:
             for i in range(self.down_idx[-2], self.down_idx[-1]):
@@ -87,6 +88,7 @@ class ShuffleNetV2(nn.Module):
         low_level_features = self.features[:4](x)  # 前4层为浅层特征
         x = self.features[4:](low_level_features)  # 后续层为深层特征
         x = self.channel_adjust(x)
+        low_level_features = self.adjust_low(low_level_features)
         return low_level_features, x
 
 
@@ -115,6 +117,8 @@ class MobileNetV2(nn.Module):
                 self.features[i].apply(
                     partial(self._nostride_dilate, dilate=2)
                 )
+        self.adjust_x = nn.Conv2d(320, 96, 1)
+        self.adjust_low = nn.Conv2d(24, 12, 1)
 
     def _nostride_dilate(self, m, dilate):
         classname = m.__class__.__name__
@@ -132,6 +136,8 @@ class MobileNetV2(nn.Module):
     def forward(self, x):
         low_level_features = self.features[:4](x)
         x = self.features[4:](low_level_features)
+        x = self.adjust_x(x)
+        low_level_features = self.adjust_low(low_level_features)
         return low_level_features, x
 
 
@@ -1057,8 +1063,8 @@ class DeepLab(nn.Module):
             #   主干部分    [30,30,2048]
             # ----------------------------------#
             self.backbone = xception(downsample_factor=downsample_factor, pretrained=pretrained)
-            in_channels = 2048
-            low_level_channels = 256
+            in_channels = 96
+            low_level_channels = 12
         elif backbone == "mobilenet":
             # ----------------------------------#
             #   获得两个特征层
@@ -1066,8 +1072,8 @@ class DeepLab(nn.Module):
             #   主干部分    [30,30,320]
             # ----------------------------------#
             self.backbone = MobileNetV2(downsample_factor=downsample_factor, pretrained=pretrained)
-            in_channels = 320
-            low_level_channels = 24
+            in_channels = 96
+            low_level_channels = 12
         elif backbone == "shufllenent":
             # ----------------------------------#
             #   获得两个特征层
@@ -1075,8 +1081,8 @@ class DeepLab(nn.Module):
             #   主干部分    [30,30,320]
             # ----------------------------------#
             self.backbone = ShuffleNetV2(downsample_factor=downsample_factor, pretrained=pretrained)
-            in_channels = 320
-            low_level_channels = 24
+            in_channels = 96
+            low_level_channels = 12
         elif backbone == "startnet":
             self.backbone = StarNet(downsample_factor=8, pretrained=pretrained)
             in_channels = 96  # 对应stage4输出通道
