@@ -203,6 +203,8 @@ class MobileNetV2(nn.Module):
         low_level_features = self.adjust_low(low_level_features)
         return low_level_features, x
 
+modle=MobileNetV2()
+print(modle)
 
 # -----------------------------------------#
 #   ASPP特征提取模块
@@ -1001,7 +1003,7 @@ class DeepLab(nn.Module):
             #   浅层特征    [128,128,24]
             #   主干部分    [30,30,320]
             # ----------------------------------#
-            self.backbone = MobileNetV1(downsample_factor=downsample_factor, pretrained=pretrained)
+            self.backbone = MobileNetV3_Small(downsample_factor=downsample_factor, pretrained=pretrained)
             in_channels = 96
             low_level_channels = 12
         elif backbone == "shufllenent":
