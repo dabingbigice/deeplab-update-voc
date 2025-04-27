@@ -970,7 +970,7 @@ class MobileNetV1(nn.Module):
 
         # 通道调整层（根据实际特征维度调整）[2,5](@ref)
         self.adjust_x = nn.Conv2d(512, 96, 1)  # 高级特征调整
-        self.adjust_low = nn.Conv2d(64, 12, 1)  # 低级特征调整
+        self.adjust_low = nn.Conv2d(32, 12, 1)  # 低级特征调整
 
     def forward(self, x):
         # 低级特征提取（前3个卷积块）[5](@ref)
