@@ -22,7 +22,7 @@ class ShuffleNetV2(nn.Module):
         from nets.shufllenetv2 import ShuffleNetV2 as SNV2  # 引用提供的ShuffleNetV2实现
 
         model = SNV2(n_class=1000, model_size='0.5x')
-        if pretrained:
+        if False:
             # 加载预训练权重（需根据实际路径调整）
             state_dict = torch.load('shufflenetv2_x1.pth')
             model.load_state_dict(state_dict, strict=False)
@@ -47,41 +47,41 @@ class ShuffleNetV2(nn.Module):
         self.adjust_x = nn.Conv2d(320, 96, 1)
         self.adjust_low = nn.Conv2d(24, 12, 1)
         # 调整下采样策略
-        if downsample_factor == 8:
-            for i in range(self.down_idx[-2], self.down_idx[-1]):
-                self.features[i].apply(partial(self._nostride_dilate, dilate=2))
-            for i in range(self.down_idx[-1], self.total_idx):
-                self.features[i].apply(partial(self._nostride_dilate, dilate=4))
-        elif downsample_factor == 16:
-            for i in range(self.down_idx[-1], self.total_idx):
-                self.features[i].apply(partial(self._nostride_dilate, dilate=2))
+        # if downsample_factor == 8:
+        #     for i in range(self.down_idx[-2], self.down_idx[-1]):
+        #         self.features[i].apply(partial(self._nostride_dilate, dilate=2))
+        #     for i in range(self.down_idx[-1], self.total_idx):
+        #         self.features[i].apply(partial(self._nostride_dilate, dilate=4))
+        # elif downsample_factor == 16:
+        #     for i in range(self.down_idx[-1], self.total_idx):
+        #         self.features[i].apply(partial(self._nostride_dilate, dilate=2))
 
-    def _nostride_dilate(self, m, dilate):
-        classname = m.__class__.__name__
-        if classname == 'Conv2d':
-            if m.stride == (2, 2):
-                m.stride = (1, 1)
-                if m.kernel_size == (3, 3):
-                    m.dilation = (dilate // 2, dilate // 2)
-                    m.padding = (dilate // 2, dilate // 2)
-            else:
-                if m.kernel_size == (3, 3):
-                    m.dilation = (dilate, dilate)
-                    m.padding = (dilate, dilate)
-        elif isinstance(m, ShuffleUnit):
-            # 处理ShuffleUnit内部卷积层
-            for layer in m.branch1:
-                if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
-                    layer.stride = (1, 1)
-                    if layer.kernel_size == (3, 3):
-                        layer.dilation = (dilate // 2, dilate // 2)
-                        layer.padding = (dilate // 2, dilate // 2)
-            for layer in m.branch2:
-                if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
-                    layer.stride = (1, 1)
-                    if layer.kernel_size == (3, 3):
-                        layer.dilation = (dilate // 2, dilate // 2)
-                        layer.padding = (dilate // 2, dilate // 2)
+    # def _nostride_dilate(self, m, dilate):
+    #     classname = m.__class__.__name__
+    #     if classname == 'Conv2d':
+    #         if m.stride == (2, 2):
+    #             m.stride = (1, 1)
+    #             if m.kernel_size == (3, 3):
+    #                 m.dilation = (dilate // 2, dilate // 2)
+    #                 m.padding = (dilate // 2, dilate // 2)
+    #         else:
+    #             if m.kernel_size == (3, 3):
+    #                 m.dilation = (dilate, dilate)
+    #                 m.padding = (dilate, dilate)
+    #     elif isinstance(m, ShuffleUnit):
+    #         # 处理ShuffleUnit内部卷积层
+    #         for layer in m.branch1:
+    #             if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
+    #                 layer.stride = (1, 1)
+    #                 if layer.kernel_size == (3, 3):
+    #                     layer.dilation = (dilate // 2, dilate // 2)
+    #                     layer.padding = (dilate // 2, dilate // 2)
+    #         for layer in m.branch2:
+    #             if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
+    #                 layer.stride = (1, 1)
+    #                 if layer.kernel_size == (3, 3):
+    #                     layer.dilation = (dilate // 2, dilate // 2)
+    #                     layer.padding = (dilate // 2, dilate // 2)
 
     def forward(self, x):
         # 获取浅层特征和深层特征
@@ -159,7 +159,7 @@ class MobileNetV2(nn.Module):
         super(MobileNetV2, self).__init__()
         from functools import partial
 
-        model = mobilenetv2(pretrained)
+        model = mobilenetv2(False)
         self.features = model.features[:-1]
 
         self.total_idx = len(self.features)
