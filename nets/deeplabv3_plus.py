@@ -21,7 +21,7 @@ class ShuffleNetV2(nn.Module):
         super(ShuffleNetV2, self).__init__()
         from nets.shufllenetv2 import ShuffleNetV2 as SNV2  # 引用提供的ShuffleNetV2实现
 
-        model = SNV2(n_class=1000, model_size='1.0x')
+        model = SNV2(n_class=1000, model_size='0.5x')
         if pretrained:
             # 加载预训练权重（需根据实际路径调整）
             state_dict = torch.load('shufflenetv2_x1.pth')

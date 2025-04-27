@@ -186,7 +186,7 @@ class EvalCallback():
                 f.write("\n")
             
             plt.figure()
-            plt.plot(self.epoches, self.mious, 'red', linewidth = 2, label='train miou')
+            plt.plot(self.epoches, self.mious, 'red', linewidth = 2, label='val miou')
 
             plt.grid(True)
             plt.xlabel('Epoch')
