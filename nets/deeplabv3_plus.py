@@ -17,7 +17,7 @@ from nets.WTConv_module import WTConv2d
 
 
 class ShuffleNetV2(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=True):
+    def __init__(self, downsample_factor=8, pretrained=False):
         super(ShuffleNetV2, self).__init__()
         from nets.shufllenetv2 import ShuffleNetV2 as SNV2  # 引用提供的ShuffleNetV2实现
 
