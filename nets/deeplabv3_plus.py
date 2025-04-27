@@ -1047,7 +1047,7 @@ class GhostNet(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.adjust_low = nn.Sequential(
-            nn.Conv2d(24, 12, 1, bias=False),  # 低级特征压缩
+            nn.Conv2d(32, 12, 1, bias=False),  # 低级特征压缩
             nn.BatchNorm2d(12),
             nn.ReLU(inplace=True)
         )
