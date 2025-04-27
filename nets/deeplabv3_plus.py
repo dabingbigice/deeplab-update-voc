@@ -927,52 +927,57 @@ class MobileNetV3_Small(nn.Module):
 
 import torch.nn as nn
 
+import torch.nn as nn
+import torch
 
-class MobileNetV1_Simple(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=False):  # 极简版建议禁用预训练
+
+class MobileNetV1(nn.Module):
+    def __init__(self, downsample_factor=8, pretrained=False):
         super().__init__()
 
-        # 核心组件定义
-        def conv_bn(inp, oup, stride):
-            return nn.Sequential(
-                nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
-                nn.BatchNorm2d(oup),
-                nn.ReLU(inplace=True)
-            )
-
+        # 定义深度可分离卷积模块[4,5](@ref)
         def conv_dw(inp, oup, stride):
             return nn.Sequential(
-                # 深度卷积
+                # 深度卷积[1](@ref)
                 nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
                 nn.BatchNorm2d(inp),
                 nn.ReLU(inplace=True),
-                # 逐点卷积
+                # 逐点卷积[1](@ref)
                 nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup),
                 nn.ReLU(inplace=True)
             )
 
-        # 极简版结构 (原版13层DW卷积缩减为7层)
+        # 原始MobileNetV1特征提取结构[4,7](@ref)
         self.features = nn.Sequential(
-            conv_bn(3, 32, 2),  # /2
-            conv_dw(32, 64, 1),  #
-            conv_dw(64, 128, 2),  # /4
-            conv_dw(128, 128, 1),  #
-            conv_dw(128, 256, 2),  # /8
-            conv_dw(256, 256, 1),  #
-            conv_dw(256, 512, 2),  # /16 (极简版终止于此)
+            # 标准初始卷积层[5](@ref)
+            nn.Conv2d(3, 32, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            # 深度可分离卷积堆叠[1](@ref)
+            conv_dw(32, 64, 1),  # stride=1
+            conv_dw(64, 128, 2),  # stride=2
+            conv_dw(128, 128, 1),
+            conv_dw(128, 256, 2),  # stride=2
+            conv_dw(256, 256, 1),
+            conv_dw(256, 512, 2),  # stride=2 (1/16下采样)
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1),
+            conv_dw(512, 512, 1)
         )
 
-        # 通道调整层（维度缩减）
-        self.adjust_x = nn.Conv2d(512, 96, 1)  # 输出通道从512压缩到96
-        self.adjust_low = nn.Conv2d(64, 12, 1)  # 低级特征从64压缩到12
+        # 通道调整层（根据实际特征维度调整）[2,5](@ref)
+        self.adjust_x = nn.Conv2d(512, 96, 1)  # 高级特征调整
+        self.adjust_low = nn.Conv2d(64, 12, 1)  # 低级特征调整
 
     def forward(self, x):
-        # 提取低级特征（前2个DW模块）
-        low_level_features = self.features[:2](x)  # 输出shape: [B,64,H/2,W/2]
+        # 低级特征提取（前3个卷积块）[5](@ref)
+        low_level_features = self.features[:3](x)  # 输出shape: [B,64,H/2,W/2]
 
-        # 提取高级特征（剩余层）
-        x = self.features[2:](low_level_features)  # 输出shape: [B,512,H/16,W/16]
+        # 高级特征提取（剩余层）[4](@ref)
+        x = self.features[3:](low_level_features)  # 输出shape: [B,512,H/16,W/16]
 
         # 通道维度调整
         x = self.adjust_x(x)
@@ -996,7 +1001,7 @@ class DeepLab(nn.Module):
             #   浅层特征    [128,128,24]
             #   主干部分    [30,30,320]
             # ----------------------------------#
-            self.backbone = MobileNetV1_Simple(downsample_factor=downsample_factor, pretrained=pretrained)
+            self.backbone = MobileNetV1(downsample_factor=downsample_factor, pretrained=pretrained)
             in_channels = 96
             low_level_channels = 12
         elif backbone == "shufllenent":
