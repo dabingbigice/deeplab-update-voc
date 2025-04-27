@@ -906,7 +906,7 @@ class MobileNetV3_Small(nn.Module):
 
         # 通道调整层（需根据实际特征输出维度调整）
         self.adjust_x = nn.Conv2d(576, 96, 1)  # 最后一层特征输出通道576
-        self.adjust_low = nn.Conv2d(16, 12, 1)  # 低级特征输出通道16
+        self.adjust_low = nn.Conv2d(24, 12, 1)  # 低级特征输出通道16
 
         # 下采样相关配置（需调试）
         self.total_idx = len(self.features)
