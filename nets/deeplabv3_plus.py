@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functorch.einops import rearrange
+from torchvision.models import mobilenet_v3_small
 
 from nets.shufllenetv2 import ShuffleUnit
 from nets.xception import xception
@@ -896,6 +897,33 @@ class ASPP(nn.Module):
         return result
 
 
+class MobileNetV3_Small(nn.Module):
+    def __init__(self, downsample_factor=8, pretrained=True):
+        super().__init__()
+        # 加载预训练模型并提取特征层
+        model = mobilenet_v3_small(weights='DEFAULT' if pretrained else None)
+        self.features = model.features
+
+        # 通道调整层（需根据实际特征输出维度调整）
+        self.adjust_x = nn.Conv2d(576, 96, 1)  # 最后一层特征输出通道576
+        self.adjust_low = nn.Conv2d(16, 12, 1)  # 低级特征输出通道16
+
+        # 下采样相关配置（需调试）
+        self.total_idx = len(self.features)
+        self.down_idx = [1, 3, 6, 12]  # 实验性索引值
+
+    def forward(self, x):
+        # 低级特征提取（前4个block）
+        low_level_features = self.features[:4](x)  # 输出shape: [B,16,H/2,W/2]
+
+        # 高级特征提取（剩余层）
+        x = self.features[4:](low_level_features)  # 输出shape: [B,576,H/16,W/16]
+
+        # 通道维度调整
+        x = self.adjust_x(x)
+        low_level_features = self.adjust_low(low_level_features)
+        return low_level_features, x
+
 class DeepLab(nn.Module):
     def __init__(self, num_classes, backbone="mobilenet", pretrained=True, downsample_factor=8):
         super(DeepLab, self).__init__()
@@ -914,7 +942,7 @@ class DeepLab(nn.Module):
             #   浅层特征    [128,128,24]
             #   主干部分    [30,30,320]
             # ----------------------------------#
-            self.backbone = MobileNetV2(downsample_factor=downsample_factor, pretrained=pretrained)
+            self.backbone = MobileNetV3_Small(downsample_factor=downsample_factor, pretrained=pretrained)
             in_channels = 96
             low_level_channels = 12
         elif backbone == "shufllenent":
