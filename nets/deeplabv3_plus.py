@@ -987,13 +987,19 @@ class MobileNetV1(nn.Module):
         return low_level_features, x
 
 
+import torch
+import torch.nn as nn
+import math
+
+
 class GhostModule(nn.Module):
     def __init__(self, inp, oup, kernel_size=1, ratio=2, dw_size=3, stride=1):
         super().__init__()
-        init_channels = int(oup / ratio)  # 基础通道数计算
+        self.oup = oup
+        init_channels = math.ceil(oup / ratio)  # 确保通道数能被整除[2](@ref)
         new_channels = init_channels * (ratio - 1)
 
-        # 主卷积路径（生成intrinsic特征）
+        # 主卷积路径
         self.primary_conv = nn.Sequential(
             nn.Conv2d(inp, init_channels, kernel_size, stride,
                       kernel_size // 2, bias=False),
@@ -1001,54 +1007,74 @@ class GhostModule(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-        # 幻影生成路径（廉价线性操作）
+        # 幻影生成路径（关键修正点）
         self.cheap_operation = nn.Sequential(
             nn.Conv2d(init_channels, new_channels, dw_size, 1,
-                      dw_size // 2, groups=init_channels, bias=False),
+                      dw_size // 2, groups=init_channels, bias=False),  # groups必须等于输入通道数[7](@ref)
             nn.BatchNorm2d(new_channels),
             nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
-        x1 = self.primary_conv(x)  # 主路径特征
-        x2 = self.cheap_operation(x1)  # 幻影特征
-        return torch.cat([x1, x2], dim=1)  # 通道拼接
+        x1 = self.primary_conv(x)
+        x2 = self.cheap_operation(x1)
+        out = torch.cat([x1, x2], dim=1)
+        return out[:, :self.oup, :, :]  # 通道维度保护
 
 
 class GhostNet(nn.Module):
     def __init__(self, downsample_factor=8, pretrained=False):
         super().__init__()
-        # Ghost特征提取主干
+        # 特征提取主干网络
         self.features = nn.Sequential(
-            nn.Sequential(  # 初始卷积层
+            nn.Sequential(
                 nn.Conv2d(3, 16, 3, 2, 1, bias=False),
                 nn.BatchNorm2d(16),
                 nn.ReLU(inplace=True)
             ),
-            GhostModule(16, 24, stride=2),  # 下采样层
+            GhostModule(16, 24, stride=2),  # 输出尺寸减半
             GhostModule(24, 32),
             GhostModule(32, 64, stride=2),  # 低级特征截止点
             GhostModule(64, 96),
             GhostModule(96, 160, stride=2),
-            GhostModule(160, 320)  # 高级特征输出层
+            GhostModule(160, 320)  # 高级特征输出
         )
 
-        # 通道调整层（适配分割任务）
+        # 通道调整层（修正适配）
         self.adjust_x = nn.Sequential(
-            GhostModule(320, 96, ratio=1),  # 保持特征图通道精简
-            nn.Conv2d(96, 96, 1)  # 最终通道调整
+            nn.Conv2d(320, 96, 1, bias=False),  # 高级特征压缩
+            nn.BatchNorm2d(96),
+            nn.ReLU(inplace=True)
         )
-        self.adjust_low = nn.Conv2d(24, 12, 1)  # 低级特征压缩
+        self.adjust_low = nn.Sequential(
+            nn.Conv2d(24, 12, 1, bias=False),  # 低级特征压缩
+            nn.BatchNorm2d(12),
+            nn.ReLU(inplace=True)
+        )
+
+        # 初始化权重
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        # 低级特征提取（前3个Ghost模块）
+        # 低级特征提取（前3个模块）
         low_level_features = self.features[:3](x)  # 输出通道24
         # 高级特征提取（剩余模块）
         x = self.features[3:](low_level_features)  # 输出通道320
-        # 通道维度调整
+        # 通道调整
         x = self.adjust_x(x)
         low_level_features = self.adjust_low(low_level_features)
         return low_level_features, x
+
+
+
 class DeepLab(nn.Module):
     def __init__(self, num_classes, backbone="mobilenet", pretrained=True, downsample_factor=8):
         super(DeepLab, self).__init__()
