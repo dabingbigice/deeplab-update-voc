@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functorch.einops import rearrange
-from torchvision.models import mobilenet_v3_small
 
 from nets.shufllenetv2 import ShuffleUnit
 from nets.xception import xception
@@ -18,12 +17,12 @@ from nets.WTConv_module import WTConv2d
 
 
 class ShuffleNetV2(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=False):
+    def __init__(self, downsample_factor=8, pretrained=True):
         super(ShuffleNetV2, self).__init__()
         from nets.shufllenetv2 import ShuffleNetV2 as SNV2  # 引用提供的ShuffleNetV2实现
 
         model = SNV2(n_class=1000, model_size='0.5x')
-        if False:
+        if pretrained:
             # 加载预训练权重（需根据实际路径调整）
             state_dict = torch.load('shufflenetv2_x1.pth')
             model.load_state_dict(state_dict, strict=False)
@@ -48,41 +47,41 @@ class ShuffleNetV2(nn.Module):
         self.adjust_x = nn.Conv2d(320, 96, 1)
         self.adjust_low = nn.Conv2d(24, 12, 1)
         # 调整下采样策略
-        # if downsample_factor == 8:
-        #     for i in range(self.down_idx[-2], self.down_idx[-1]):
-        #         self.features[i].apply(partial(self._nostride_dilate, dilate=2))
-        #     for i in range(self.down_idx[-1], self.total_idx):
-        #         self.features[i].apply(partial(self._nostride_dilate, dilate=4))
-        # elif downsample_factor == 16:
-        #     for i in range(self.down_idx[-1], self.total_idx):
-        #         self.features[i].apply(partial(self._nostride_dilate, dilate=2))
+        if downsample_factor == 8:
+            for i in range(self.down_idx[-2], self.down_idx[-1]):
+                self.features[i].apply(partial(self._nostride_dilate, dilate=2))
+            for i in range(self.down_idx[-1], self.total_idx):
+                self.features[i].apply(partial(self._nostride_dilate, dilate=4))
+        elif downsample_factor == 16:
+            for i in range(self.down_idx[-1], self.total_idx):
+                self.features[i].apply(partial(self._nostride_dilate, dilate=2))
 
-    # def _nostride_dilate(self, m, dilate):
-    #     classname = m.__class__.__name__
-    #     if classname == 'Conv2d':
-    #         if m.stride == (2, 2):
-    #             m.stride = (1, 1)
-    #             if m.kernel_size == (3, 3):
-    #                 m.dilation = (dilate // 2, dilate // 2)
-    #                 m.padding = (dilate // 2, dilate // 2)
-    #         else:
-    #             if m.kernel_size == (3, 3):
-    #                 m.dilation = (dilate, dilate)
-    #                 m.padding = (dilate, dilate)
-    #     elif isinstance(m, ShuffleUnit):
-    #         # 处理ShuffleUnit内部卷积层
-    #         for layer in m.branch1:
-    #             if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
-    #                 layer.stride = (1, 1)
-    #                 if layer.kernel_size == (3, 3):
-    #                     layer.dilation = (dilate // 2, dilate // 2)
-    #                     layer.padding = (dilate // 2, dilate // 2)
-    #         for layer in m.branch2:
-    #             if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
-    #                 layer.stride = (1, 1)
-    #                 if layer.kernel_size == (3, 3):
-    #                     layer.dilation = (dilate // 2, dilate // 2)
-    #                     layer.padding = (dilate // 2, dilate // 2)
+    def _nostride_dilate(self, m, dilate):
+        classname = m.__class__.__name__
+        if classname == 'Conv2d':
+            if m.stride == (2, 2):
+                m.stride = (1, 1)
+                if m.kernel_size == (3, 3):
+                    m.dilation = (dilate // 2, dilate // 2)
+                    m.padding = (dilate // 2, dilate // 2)
+            else:
+                if m.kernel_size == (3, 3):
+                    m.dilation = (dilate, dilate)
+                    m.padding = (dilate, dilate)
+        elif isinstance(m, ShuffleUnit):
+            # 处理ShuffleUnit内部卷积层
+            for layer in m.branch1:
+                if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
+                    layer.stride = (1, 1)
+                    if layer.kernel_size == (3, 3):
+                        layer.dilation = (dilate // 2, dilate // 2)
+                        layer.padding = (dilate // 2, dilate // 2)
+            for layer in m.branch2:
+                if isinstance(layer, nn.Conv2d) and layer.stride == (2, 2):
+                    layer.stride = (1, 1)
+                    if layer.kernel_size == (3, 3):
+                        layer.dilation = (dilate // 2, dilate // 2)
+                        layer.padding = (dilate // 2, dilate // 2)
 
     def forward(self, x):
         # 获取浅层特征和深层特征
@@ -160,41 +159,41 @@ class MobileNetV2(nn.Module):
         super(MobileNetV2, self).__init__()
         from functools import partial
 
-        model = mobilenetv2(False)
+        model = mobilenetv2(pretrained)
         self.features = model.features[:-1]
 
         self.total_idx = len(self.features)
         self.down_idx = [2, 4, 7, 14]
 
-        # if downsample_factor == 8:
-        #     for i in range(self.down_idx[-2], self.down_idx[-1]):
-        #         self.features[i].apply(
-        #             partial(self._nostride_dilate, dilate=2)
-        #         )
-        #     for i in range(self.down_idx[-1], self.total_idx):
-        #         self.features[i].apply(
-        #             partial(self._nostride_dilate, dilate=4)
-        #         )
-        # elif downsample_factor == 16:
-        #     for i in range(self.down_idx[-1], self.total_idx):
-        #         self.features[i].apply(
-        #             partial(self._nostride_dilate, dilate=2)
-        #         )
+        if downsample_factor == 8:
+            for i in range(self.down_idx[-2], self.down_idx[-1]):
+                self.features[i].apply(
+                    partial(self._nostride_dilate, dilate=2)
+                )
+            for i in range(self.down_idx[-1], self.total_idx):
+                self.features[i].apply(
+                    partial(self._nostride_dilate, dilate=4)
+                )
+        elif downsample_factor == 16:
+            for i in range(self.down_idx[-1], self.total_idx):
+                self.features[i].apply(
+                    partial(self._nostride_dilate, dilate=2)
+                )
         self.adjust_x = nn.Conv2d(320, 96, 1)
         self.adjust_low = nn.Conv2d(24, 12, 1)
 
-    # def _nostride_dilate(self, m, dilate):
-    #     classname = m.__class__.__name__
-    #     if classname.find('Conv') != -1:
-    #         if m.stride == (2, 2):
-    #             m.stride = (1, 1)
-    #             if m.kernel_size == (3, 3):
-    #                 m.dilation = (dilate // 2, dilate // 2)
-    #                 m.padding = (dilate // 2, dilate // 2)
-    #         else:
-    #             if m.kernel_size == (3, 3):
-    #                 m.dilation = (dilate, dilate)
-    #                 m.padding = (dilate, dilate)
+    def _nostride_dilate(self, m, dilate):
+        classname = m.__class__.__name__
+        if classname.find('Conv') != -1:
+            if m.stride == (2, 2):
+                m.stride = (1, 1)
+                if m.kernel_size == (3, 3):
+                    m.dilation = (dilate // 2, dilate // 2)
+                    m.padding = (dilate // 2, dilate // 2)
+            else:
+                if m.kernel_size == (3, 3):
+                    m.dilation = (dilate, dilate)
+                    m.padding = (dilate, dilate)
 
     def forward(self, x):
         low_level_features = self.features[:4](x)
@@ -203,13 +202,71 @@ class MobileNetV2(nn.Module):
         low_level_features = self.adjust_low(low_level_features)
         return low_level_features, x
 
-modle=MobileNetV2()
-print(modle)
 
 # -----------------------------------------#
 #   ASPP特征提取模块
 #   利用不同膨胀率的膨胀卷积进行特征提取
 # #-----------------------------------------#
+class ASPP(nn.Module):
+    def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
+        super(ASPP, self).__init__()
+        self.branch1 = nn.Sequential(
+            nn.Conv2d(dim_in, dim_out, 1, 1, padding=0, dilation=rate, bias=True),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+        self.branch2 = nn.Sequential(
+            nn.Conv2d(dim_in, dim_out, 3, 1, padding=6 * rate, dilation=6 * rate, bias=True),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+        self.branch3 = nn.Sequential(
+            nn.Conv2d(dim_in, dim_out, 3, 1, padding=12 * rate, dilation=12 * rate, bias=True),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+        self.branch4 = nn.Sequential(
+            nn.Conv2d(dim_in, dim_out, 3, 1, padding=18 * rate, dilation=18 * rate, bias=True),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+        self.branch5_conv = nn.Conv2d(dim_in, dim_out, 1, 1, 0, bias=True)
+        self.branch5_bn = nn.BatchNorm2d(dim_out, momentum=bn_mom)
+        self.branch5_relu = nn.ReLU(inplace=True)
+
+        self.conv_cat = nn.Sequential(
+            nn.Conv2d(dim_out * 5, dim_out, 1, 1, padding=0, bias=True),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        [b, c, row, col] = x.size()
+        # -----------------------------------------#
+        #   一共五个分支
+        # -----------------------------------------#
+        conv1x1 = self.branch1(x)
+        conv3x3_1 = self.branch2(x)
+        conv3x3_2 = self.branch3(x)
+        conv3x3_3 = self.branch4(x)
+        # -----------------------------------------#
+        #   第五个分支，全局平均池化+卷积
+        # -----------------------------------------#
+        global_feature = torch.mean(x, 2, True)
+        global_feature = torch.mean(global_feature, 3, True)
+        global_feature = self.branch5_conv(global_feature)
+        global_feature = self.branch5_bn(global_feature)
+        global_feature = self.branch5_relu(global_feature)
+        global_feature = F.interpolate(global_feature, (row, col), None, 'bilinear', True)
+
+        # -----------------------------------------#
+        #   将五个分支的内容堆叠起来
+        #   然后1x1卷积整合特征。
+        # -----------------------------------------#
+        feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3, global_feature], dim=1)
+        result = self.conv_cat(feature_cat)
+        return result
+
 
 # # 深度可分离+空洞卷积
 # class ASPP(nn.Module):
@@ -680,6 +737,116 @@ class ASPP_group_point_conv(nn.Module):
         return self.fusion(concat_feat)  # [B,C,H,W]
 
 
+class ASPP_Avg_pool(nn.Module):
+    def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
+        super().__init__()
+        # 多级池化层
+
+        reduction = 4  # 通道压缩比例
+        self.branch1 = nn.Sequential(
+            nn.AvgPool2d(kernel_size=2),  # 步长自动等于kernel_size
+            nn.Conv2d(dim_in, dim_in // reduction, 1),  # 1x1卷积降维
+            nn.BatchNorm2d(dim_in // reduction),
+            nn.ReLU(inplace=True),
+
+            nn.Conv2d(dim_in // reduction, dim_out, 1, 1, padding=0, bias=False),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        self.branch2 = nn.Sequential(
+            nn.AvgPool2d(kernel_size=4),  # 步长自动等于kernel_size
+            nn.Conv2d(dim_in, dim_in // reduction, 1),  # 1x1卷积降维
+            nn.BatchNorm2d(dim_in // reduction),
+            nn.ReLU(inplace=True),
+
+            # 调整通道
+            nn.Conv2d(dim_in // reduction, dim_out, 1, 1, padding=0, bias=False),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        self.branch3 = nn.Sequential(
+            nn.AvgPool2d(kernel_size=8),  # 步长自动等于kernel_size
+            nn.Conv2d(dim_in, dim_in // reduction, 1),  # 1x1卷积降维
+            nn.BatchNorm2d(dim_in // reduction),
+            nn.ReLU(inplace=True),
+
+            # 调整通道
+            nn.Conv2d(dim_in // reduction, dim_out, 1, 1, padding=0, bias=False),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        self.branch4 = nn.Sequential(
+            nn.Conv2d(dim_in, dim_in, 3, padding=6 * rate, dilation=6 * rate, groups=dim_in, bias=False),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+
+            # 调整通道
+            nn.Conv2d(dim_in, dim_out, 1, groups=4, bias=False),
+            ChannelShuffle(groups=4),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+
+        )
+
+        self.branch5 = nn.Sequential(
+            nn.Conv2d(dim_in, dim_in, 3, padding=12 * rate, dilation=12 * rate, groups=dim_in, bias=False),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(dim_in, dim_out, 1, groups=4, bias=False),
+            ChannelShuffle(groups=4),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+
+        )
+        self.pool = [self.branch1, self.branch2, self.branch3]
+
+        self.conv_cat = nn.Sequential(
+            nn.Conv2d(dim_out * 5, dim_out, 1, 1, padding=0, bias=True),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=32),
+        )
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        # [b, c, row, col] = x.size()
+        # -----------------------------------------#
+        #   一共五个分支
+        # -----------------------------------------#
+        # conv1x1 = self.branch1(x)
+        # conv3x3_1 = self.branch2(x)
+        # conv3x3_2 = self.branch3(x)
+        conv3x3_1 = self.branch4(x)
+        conv3x3_2 = self.branch5(x)
+        # -----------------------------------------#
+        #   第五个分支，全局平均池化+卷积
+        # -----------------------------------------#
+        # global_feature = torch.mean(x, 2, True)
+        # global_feature = torch.mean(global_feature, 3, True)
+        # global_feature = self.branch5_conv(global_feature)
+        # global_feature = self.branch5_bn(global_feature)
+        # global_feature = self.branch5_relu(global_feature)
+        # global_feature = F.interpolate(global_feature, (row, col), None, 'bilinear', True)
+
+        features = []
+        for i, branch in enumerate(self.pool):
+            # 执行池化和降维
+            pooled = branch(x)
+            # 上采样至原始尺寸
+            upsampled = F.interpolate(pooled, size=(H, W), mode='bilinear', align_corners=False)
+            features.append(upsampled)
+
+        # -----------------------------------------#
+        #   将五个分支的内容堆叠起来
+        #   然后1x1卷积整合特征。
+        # -----------------------------------------#
+        feature_cat = torch.cat([*features, conv3x3_1, conv3x3_2], dim=1)
+        result = self.conv_cat(feature_cat)
+        return result
+
 
 class HCA(nn.Module):
     def __init__(self, in_ch, levels=4):
@@ -838,241 +1005,6 @@ class ASPP_group_point_conv_concat_before(nn.Module):
         return x1 + self.act(x1) * self.act(self.fusion(concat_feat))
 
 
-class ASPP(nn.Module):
-    def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
-        super(ASPP, self).__init__()
-        self.branch1 = nn.Sequential(
-            nn.Conv2d(dim_in, dim_out, 1, 1, padding=0, dilation=rate, bias=True),
-            nn.BatchNorm2d(dim_out, momentum=bn_mom),
-            nn.ReLU(inplace=True),
-        )
-        self.branch2 = nn.Sequential(
-            nn.Conv2d(dim_in, dim_out, 3, 1, padding=6 * rate, dilation=6 * rate, bias=True),
-            nn.BatchNorm2d(dim_out, momentum=bn_mom),
-            nn.ReLU(inplace=True),
-        )
-        self.branch3 = nn.Sequential(
-            nn.Conv2d(dim_in, dim_out, 3, 1, padding=12 * rate, dilation=12 * rate, bias=True),
-            nn.BatchNorm2d(dim_out, momentum=bn_mom),
-            nn.ReLU(inplace=True),
-        )
-        self.branch4 = nn.Sequential(
-            nn.Conv2d(dim_in, dim_out, 3, 1, padding=18 * rate, dilation=18 * rate, bias=True),
-            nn.BatchNorm2d(dim_out, momentum=bn_mom),
-            nn.ReLU(inplace=True),
-        )
-        self.branch5_conv = nn.Conv2d(dim_in, dim_out, 1, 1, 0, bias=True)
-        self.branch5_bn = nn.BatchNorm2d(dim_out, momentum=bn_mom)
-        self.branch5_relu = nn.ReLU(inplace=True)
-
-        self.conv_cat = nn.Sequential(
-            nn.Conv2d(dim_out * 5, dim_out, 1, 1, padding=0, bias=True),
-            nn.BatchNorm2d(dim_out, momentum=bn_mom),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        [b, c, row, col] = x.size()
-        # -----------------------------------------#
-        #   一共五个分支
-        # -----------------------------------------#
-        conv1x1 = self.branch1(x)
-        conv3x3_1 = self.branch2(x)
-        conv3x3_2 = self.branch3(x)
-        conv3x3_3 = self.branch4(x)
-        # -----------------------------------------#
-        #   第五个分支，全局平均池化+卷积
-        # -----------------------------------------#
-        global_feature = torch.mean(x, 2, True)
-        global_feature = torch.mean(global_feature, 3, True)
-        global_feature = self.branch5_conv(global_feature)
-        global_feature = self.branch5_bn(global_feature)
-        global_feature = self.branch5_relu(global_feature)
-        global_feature = F.interpolate(global_feature, (row, col), None, 'bilinear', True)
-
-        # -----------------------------------------#
-        #   将五个分支的内容堆叠起来
-        #   然后1x1卷积整合特征。
-        # -----------------------------------------#
-        feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3, global_feature], dim=1)
-        result = self.conv_cat(feature_cat)
-        return result
-
-
-class MobileNetV3_Small(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=True):
-        super().__init__()
-        # 加载预训练模型并提取特征层
-        model = mobilenet_v3_small(weights='DEFAULT' if pretrained else None)
-        self.features = model.features
-
-        # 通道调整层（需根据实际特征输出维度调整）
-        self.adjust_x = nn.Conv2d(576, 96, 1)  # 最后一层特征输出通道576
-        self.adjust_low = nn.Conv2d(24, 12, 1)  # 低级特征输出通道24
-
-        # 下采样相关配置（需调试）
-        self.total_idx = len(self.features)
-        self.down_idx = [1, 3, 6, 12]  # 实验性索引值
-
-    def forward(self, x):
-        # 低级特征提取（前4个block）
-        low_level_features = self.features[:4](x)  # 输出shape: [B,16,H/2,W/2]
-
-        # 高级特征提取（剩余层）
-        x = self.features[4:](low_level_features)  # 输出shape: [B,576,H/16,W/16]
-
-        # 通道维度调整
-        x = self.adjust_x(x)
-        low_level_features = self.adjust_low(low_level_features)
-        return low_level_features, x
-
-
-import torch.nn as nn
-
-import torch.nn as nn
-import torch
-
-
-class MobileNetV1(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=False):
-        super().__init__()
-
-        # 定义深度可分离卷积模块[4,5](@ref)
-        def conv_dw(inp, oup, stride):
-            return nn.Sequential(
-                # 深度卷积[1](@ref)
-                nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
-                nn.BatchNorm2d(inp),
-                nn.ReLU(inplace=True),
-                # 逐点卷积[1](@ref)
-                nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-                nn.ReLU(inplace=True)
-            )
-
-        # 原始MobileNetV1特征提取结构[4,7](@ref)
-        self.features = nn.Sequential(
-            # 标准初始卷积层[5](@ref)
-            nn.Conv2d(3, 32, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            # 深度可分离卷积堆叠[1](@ref)
-            conv_dw(32, 64, 1),  # stride=1
-            conv_dw(64, 128, 2),  # stride=2
-            conv_dw(128, 128, 1),
-            conv_dw(128, 256, 2),  # stride=2
-            conv_dw(256, 256, 1),
-            conv_dw(256, 512, 2),  # stride=2 (1/16下采样)
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1)
-        )
-
-        # 通道调整层（根据实际特征维度调整）[2,5](@ref)
-        self.adjust_x = nn.Conv2d(512, 96, 1)  # 高级特征调整
-        self.adjust_low = nn.Conv2d(32, 12, 1)  # 低级特征调整
-
-    def forward(self, x):
-        # 低级特征提取（前3个卷积块）[5](@ref)
-        low_level_features = self.features[:3](x)  # 输出shape: [B,64,H/2,W/2]
-
-        # 高级特征提取（剩余层）[4](@ref)
-        x = self.features[3:](low_level_features)  # 输出shape: [B,512,H/16,W/16]
-
-        # 通道维度调整
-        x = self.adjust_x(x)
-        low_level_features = self.adjust_low(low_level_features)
-        return low_level_features, x
-
-
-import torch
-import torch.nn as nn
-import math
-
-
-class GhostModule(nn.Module):
-    def __init__(self, inp, oup, kernel_size=1, ratio=2, dw_size=3, stride=1):
-        super().__init__()
-        self.oup = oup
-        init_channels = math.ceil(oup / ratio)  # 确保通道数能被整除[2](@ref)
-        new_channels = init_channels * (ratio - 1)
-
-        # 主卷积路径
-        self.primary_conv = nn.Sequential(
-            nn.Conv2d(inp, init_channels, kernel_size, stride,
-                      kernel_size // 2, bias=False),
-            nn.BatchNorm2d(init_channels),
-            nn.ReLU(inplace=True)
-        )
-
-        # 幻影生成路径（关键修正点）
-        self.cheap_operation = nn.Sequential(
-            nn.Conv2d(init_channels, new_channels, dw_size, 1,
-                      dw_size // 2, groups=init_channels, bias=False),  # groups必须等于输入通道数[7](@ref)
-            nn.BatchNorm2d(new_channels),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        x1 = self.primary_conv(x)
-        x2 = self.cheap_operation(x1)
-        out = torch.cat([x1, x2], dim=1)
-        return out[:, :self.oup, :, :]  # 通道维度保护
-
-
-class GhostNet(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=False):
-        super().__init__()
-        # 特征提取主干网络
-        self.features = nn.Sequential(
-            nn.Sequential(
-                nn.Conv2d(3, 16, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(16),
-                nn.ReLU(inplace=True)
-            ),
-            GhostModule(16, 24, stride=2),  # 输出尺寸减半
-            GhostModule(24, 32),
-            GhostModule(32, 64, stride=2),  # 低级特征截止点
-            GhostModule(64, 96),
-            GhostModule(96, 160, stride=2),
-            GhostModule(160, 320)  # 高级特征输出
-        )
-
-        # 通道调整层（修正适配）
-        self.adjust_x = nn.Sequential(
-            nn.Conv2d(320, 96, 1, bias=False),  # 高级特征压缩
-            nn.BatchNorm2d(96),
-            nn.ReLU(inplace=True)
-        )
-        self.adjust_low = nn.Sequential(
-            nn.Conv2d(32, 12, 1, bias=False),  # 低级特征压缩
-            nn.BatchNorm2d(12),
-            nn.ReLU(inplace=True)
-        )
-
-        # 初始化权重
-        self._initialize_weights()
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        # 低级特征提取（前3个模块）
-        low_level_features = self.features[:3](x)  # 输出通道24
-        # 高级特征提取（剩余模块）
-        x = self.features[3:](low_level_features)  # 输出通道320
-        # 通道调整
-        x = self.adjust_x(x)
-        low_level_features = self.adjust_low(low_level_features)
-        return low_level_features, x
-
 
 
 class DeepLab(nn.Module):
@@ -1093,7 +1025,7 @@ class DeepLab(nn.Module):
             #   浅层特征    [128,128,24]
             #   主干部分    [30,30,320]
             # ----------------------------------#
-            self.backbone = MobileNetV3_Small(downsample_factor=downsample_factor, pretrained=pretrained)
+            self.backbone = MobileNetV2(downsample_factor=downsample_factor, pretrained=pretrained)
             in_channels = 96
             low_level_channels = 12
         elif backbone == "shufllenent":
@@ -1109,10 +1041,6 @@ class DeepLab(nn.Module):
             self.backbone = StarNet(downsample_factor=8, pretrained=pretrained)
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
-        elif backbone == "ghostnet":
-            self.backbone = GhostNet(downsample_factor=8, pretrained=pretrained)
-            in_channels = 96  # 对应stage4输出通道
-            low_level_channels = 12  # 对应stage1输出通道
 
         elif backbone == "resnet":
             self.backbone = ResNet18(downsample_factor=8, pretrained=pretrained)
@@ -1125,11 +1053,11 @@ class DeepLab(nn.Module):
         #   ASPP特征提取模块
         #   利用不同膨胀率的膨胀卷积进行特征提取
         # -----------------------------------------#
-        # self.aspp_lrsa = nn.Sequential(
-        #     LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
-        # )
+        self.aspp_lrsa = nn.Sequential(
+            LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
+        )
 
-        self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # self.aspp_last_concat_fusion = nn.Sequential(
         #     nn.Conv2d(in_channels + 128, 128, kernel_size=1, bias=False),
@@ -1146,45 +1074,45 @@ class DeepLab(nn.Module):
 
         )
         # 普通3*3卷积
-        self.cat_conv = nn.Sequential(
-            nn.Conv2d(152, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-
-            nn.Conv2d(256, 128, 3, stride=1, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-
-            nn.Dropout(0.1),
-        )
+        # self.cat_conv = nn.Sequential(
+        #     nn.Conv2d(48+256, 256, 3, stride=1, padding=1),
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(0.5),
+        #
+        #     nn.Conv2d(256, 256, 3, stride=1, padding=1),
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #
+        #     nn.Dropout(0.1),
+        # )
         # self.cls_conv = nn.Conv2d(256, num_classes, 1, stride=1)
         # 深度空间可分离卷积
-        # self.cat_conv = nn.Sequential(
-        #     # --------------------------------
-        #     # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
-        #     # --------------------------------
-        #     # 深度卷积（空洞率=2）
-        #     WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
-        #     # Depthwise卷积[1,6](@ref)
-        #     nn.BatchNorm2d(152),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(inplace=True),
-        #     # --------------------------------
-        #     # 第二个融合块：深度可分离卷积 + 空洞卷积
-        #     # --------------------------------
-        #     # 深度卷积（空洞率=4）
-        #     WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
-        #     # 更高空洞率[9,11](@ref)
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
-        #     nn.BatchNorm2d(128),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(0.1)
-        # )
+        self.cat_conv = nn.Sequential(
+            # --------------------------------
+            # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
+            # --------------------------------
+            # 深度卷积（空洞率=2）
+            WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
+            # Depthwise卷积[1,6](@ref)
+            nn.BatchNorm2d(152),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            # --------------------------------
+            # 第二个融合块：深度可分离卷积 + 空洞卷积
+            # --------------------------------
+            # 深度卷积（空洞率=4）
+            WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
+            # 更高空洞率[9,11](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1)
+        )
         self.cls_conv = nn.Conv2d(128, num_classes, 1)
 
     def forward(self, x):
@@ -1196,8 +1124,8 @@ class DeepLab(nn.Module):
         # -----------------------------------------#
         low_level_features, x_aspp_before = self.backbone(x)
 
-        # x = self.aspp_lrsa(x_aspp_before)
-        x = self.aspp(x_aspp_before)
+        x = self.aspp_lrsa(x_aspp_before)
+        x = self.aspp(x)
         # x = torch.cat([x_aspp_before, x], dim=1)
         # x = self.aspp_last_concat_fusion(x)
         low_level_features = self.shortcut_conv(low_level_features)
