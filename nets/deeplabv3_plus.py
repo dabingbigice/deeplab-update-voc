@@ -1274,7 +1274,8 @@ class DeepLab(nn.Module):
         )
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        self.aspp = ASPP_ghost_x(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor,dim_out_branch_out=64)
+        # self.aspp = ASPP_ghost_x(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor,dim_out_branch_out=64)
+        self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # self.aspp_last_concat_fusion = nn.Sequential(
         #     nn.Conv2d(in_channels + 128, 128, kernel_size=1, bias=False),
@@ -1341,7 +1342,7 @@ class DeepLab(nn.Module):
         # -----------------------------------------#
         low_level_features, x_aspp_before = self.backbone(x)
 
-        x = self.aspp_lrsa(x_aspp_before)
+        # x = self.aspp_lrsa(x_aspp_before)
         x = self.aspp(x)
         # x = torch.cat([x_aspp_before, x], dim=1)
         # x = self.aspp_last_concat_fusion(x)
