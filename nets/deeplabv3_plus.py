@@ -1269,9 +1269,9 @@ class DeepLab(nn.Module):
         #   ASPP特征提取模块
         #   利用不同膨胀率的膨胀卷积进行特征提取
         # -----------------------------------------#
-        self.aspp_lrsa = nn.Sequential(
-            LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
-        )
+        # self.aspp_lrsa = nn.Sequential(
+        #     LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
+        # )
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_ghost_x(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor,dim_out_branch_out=64)
@@ -1292,45 +1292,45 @@ class DeepLab(nn.Module):
 
         )
         # 普通3*3卷积
-        # self.cat_conv = nn.Sequential(
-        #     nn.Conv2d(48+256, 256, 3, stride=1, padding=1),
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(0.5),
-        #
-        #     nn.Conv2d(256, 256, 3, stride=1, padding=1),
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(inplace=True),
-        #
-        #     nn.Dropout(0.1),
-        # )
+        self.cat_conv = nn.Sequential(
+            nn.Conv2d(48+256, 256, 3, stride=1, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+
+            nn.Conv2d(256, 256, 3, stride=1, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+
+            nn.Dropout(0.1),
+        )
         # self.cls_conv = nn.Conv2d(256, num_classes, 1, stride=1)
         # 深度空间可分离卷积
-        self.cat_conv = nn.Sequential(
-            # --------------------------------
-            # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
-            # --------------------------------
-            # 深度卷积（空洞率=2）
-            WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
-            # Depthwise卷积[1,6](@ref)
-            nn.BatchNorm2d(152),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            # --------------------------------
-            # 第二个融合块：深度可分离卷积 + 空洞卷积
-            # --------------------------------
-            # 深度卷积（空洞率=4）
-            WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
-            # 更高空洞率[9,11](@ref)
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1)
-        )
+        # self.cat_conv = nn.Sequential(
+        #     # --------------------------------
+        #     # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
+        #     # --------------------------------
+        #     # 深度卷积（空洞率=2）
+        #     WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
+        #     # Depthwise卷积[1,6](@ref)
+        #     nn.BatchNorm2d(152),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #     # --------------------------------
+        #     # 第二个融合块：深度可分离卷积 + 空洞卷积
+        #     # --------------------------------
+        #     # 深度卷积（空洞率=4）
+        #     WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
+        #     # 更高空洞率[9,11](@ref)
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+        #     nn.BatchNorm2d(128),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(0.1)
+        # )
         self.cls_conv = nn.Conv2d(128, num_classes, 1)
 
     def forward(self, x):
