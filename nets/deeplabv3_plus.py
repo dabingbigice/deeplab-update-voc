@@ -1259,7 +1259,7 @@ class DeepLab(nn.Module):
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         elif backbone == "ghostnet":
-            self.backbone = GhostNet(downsample_factor=8, pretrained=pretrained)
+            self.backbone = GhostNet()
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         else:
