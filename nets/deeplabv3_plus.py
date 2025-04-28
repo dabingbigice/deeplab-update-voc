@@ -1293,13 +1293,13 @@ class DeepLab(nn.Module):
         )
         # 普通3*3卷积
         self.cat_conv = nn.Sequential(
-            nn.Conv2d(48+256, 256, 3, stride=1, padding=1),
+            nn.Conv2d(152, 256, 3, stride=1, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
 
-            nn.Conv2d(256, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 128, 3, stride=1, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
 
             nn.Dropout(0.1),
