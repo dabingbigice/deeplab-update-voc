@@ -1343,7 +1343,7 @@ class DeepLab(nn.Module):
         low_level_features, x_aspp_before = self.backbone(x)
 
         # x = self.aspp_lrsa(x_aspp_before)
-        x = self.aspp(x)
+        x = self.aspp(x_aspp_before)
         # x = torch.cat([x_aspp_before, x], dim=1)
         # x = self.aspp_last_concat_fusion(x)
         low_level_features = self.shortcut_conv(low_level_features)
