@@ -17,7 +17,7 @@ train_percent       = 0.9
 #   指向VOC数据集所在的文件夹
 #   默认指向根目录下的VOC数据集
 #-------------------------------------------------------#
-VOCdevkit_path      = 'VOCdevkit'
+VOCdevkit_path      = 'D:\pycode\dataset\MB Yellow Mosaic.v3i.png-mask-semantic\VOCdevkit'
 
 if __name__ == "__main__":
     random.seed(0)
