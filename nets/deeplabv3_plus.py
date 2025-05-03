@@ -645,6 +645,7 @@ class GhostModule(nn.Module):
         return out[:, :self.oup, :, :]  # 通道维度保护
 
 
+import math
 class GhostNet(nn.Module):
     def __init__(self, downsample_factor=8, pretrained=False):
         super().__init__()
