@@ -933,58 +933,6 @@ import torch.nn as nn
 import torch
 
 
-class MobileNetV1(nn.Module):
-    def __init__(self, downsample_factor=8, pretrained=False):
-        super().__init__()
-
-        # 定义深度可分离卷积模块[4,5](@ref)
-        def conv_dw(inp, oup, stride):
-            return nn.Sequential(
-                # 深度卷积[1](@ref)
-                nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
-                nn.BatchNorm2d(inp),
-                nn.ReLU(inplace=True),
-                # 逐点卷积[1](@ref)
-                nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-                nn.ReLU(inplace=True)
-            )
-
-        # 原始MobileNetV1特征提取结构[4,7](@ref)
-        self.features = nn.Sequential(
-            # 标准初始卷积层[5](@ref)
-            nn.Conv2d(3, 32, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            # 深度可分离卷积堆叠[1](@ref)
-            conv_dw(32, 64, 1),  # stride=1
-            conv_dw(64, 128, 2),  # stride=2
-            conv_dw(128, 128, 1),
-            conv_dw(128, 256, 2),  # stride=2
-            conv_dw(256, 256, 1),
-            conv_dw(256, 512, 2),  # stride=2 (1/16下采样)
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1),
-            conv_dw(512, 512, 1)
-        )
-
-        # 通道调整层（根据实际特征维度调整）[2,5](@ref)
-        self.adjust_x = nn.Conv2d(512, 96, 1)  # 高级特征调整
-        self.adjust_low = nn.Conv2d(32, 12, 1)  # 低级特征调整
-
-    def forward(self, x):
-        # 低级特征提取（前3个卷积块）[5](@ref)
-        low_level_features = self.features[:3](x)  # 输出shape: [B,64,H/2,W/2]
-
-        # 高级特征提取（剩余层）[4](@ref)
-        x = self.features[3:](low_level_features)  # 输出shape: [B,512,H/16,W/16]
-
-        # 通道维度调整
-        x = self.adjust_x(x)
-        low_level_features = self.adjust_low(low_level_features)
-        return low_level_features, x
 
 
 import torch
