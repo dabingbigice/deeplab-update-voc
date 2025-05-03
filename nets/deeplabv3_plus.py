@@ -967,9 +967,8 @@ class ASPP_group_point_conv_concat_before(nn.Module):
             nn.Conv2d(dim_out * 5, dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
-            LRSA(dim_out, qk_dim=32, mlp_dim=64, ps=16),
         )
-        self.act = nn.ReLU6(inplace=True)
+        self.act = nn.ReLU6(inplace=False)
         self.adjust = nn.Conv2d(dim_in, dim_out, 1)
 
     def forward(self, x):
@@ -1273,9 +1272,9 @@ class DeepLab(nn.Module):
         #     LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
         # )
 
-        # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_ghost_x(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor,dim_out_branch_out=64)
-        self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        # self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # self.aspp_last_concat_fusion = nn.Sequential(
         #     nn.Conv2d(in_channels + 128, 128, kernel_size=1, bias=False),
@@ -1292,45 +1291,45 @@ class DeepLab(nn.Module):
 
         )
         # 普通3*3卷积
-        self.cat_conv = nn.Sequential(
-            nn.Conv2d(152, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-
-            nn.Conv2d(256, 128, 3, stride=1, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-
-            nn.Dropout(0.1),
-        )
-        # self.cls_conv = nn.Conv2d(256, num_classes, 1, stride=1)
-        # 深度空间可分离卷积
         # self.cat_conv = nn.Sequential(
-        #     # --------------------------------
-        #     # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
-        #     # --------------------------------
-        #     # 深度卷积（空洞率=2）
-        #     WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
-        #     # Depthwise卷积[1,6](@ref)
-        #     nn.BatchNorm2d(152),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+        #     nn.Conv2d(152, 256, 3, stride=1, padding=1),
         #     nn.BatchNorm2d(256),
         #     nn.ReLU(inplace=True),
-        #     # --------------------------------
-        #     # 第二个融合块：深度可分离卷积 + 空洞卷积
-        #     # --------------------------------
-        #     # 深度卷积（空洞率=4）
-        #     WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
-        #     # 更高空洞率[9,11](@ref)
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+        #     nn.Dropout(0.5),
+        #
+        #     nn.Conv2d(256, 128, 3, stride=1, padding=1),
         #     nn.BatchNorm2d(128),
         #     nn.ReLU(inplace=True),
-        #     nn.Dropout(0.1)
+        #
+        #     nn.Dropout(0.1),
         # )
+        # self.cls_conv = nn.Conv2d(256, num_classes, 1, stride=1)
+        # 深度空间可分离卷积
+        self.cat_conv = nn.Sequential(
+            # --------------------------------
+            # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
+            # --------------------------------
+            # 深度卷积（空洞率=2）
+            WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
+            # Depthwise卷积[1,6](@ref)
+            nn.BatchNorm2d(152),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            # --------------------------------
+            # 第二个融合块：深度可分离卷积 + 空洞卷积
+            # --------------------------------
+            # 深度卷积（空洞率=4）
+            WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
+            # 更高空洞率[9,11](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1)
+        )
         self.cls_conv = nn.Conv2d(128, num_classes, 1)
 
     def forward(self, x):
@@ -1342,7 +1341,7 @@ class DeepLab(nn.Module):
         # -----------------------------------------#
         low_level_features, x_aspp_before = self.backbone(x)
 
-        # x = self.aspp_lrsa(x_aspp_before)
+        x = self.aspp_lrsa(x_aspp_before)
         x = self.aspp(x_aspp_before)
         # x = torch.cat([x_aspp_before, x], dim=1)
         # x = self.aspp_last_concat_fusion(x)
