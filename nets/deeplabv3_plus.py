@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functorch.einops import rearrange
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights, convnext_base, ConvNeXt_Base_Weights
 
 from nets.xception import xception
 from nets.mobilenetv2 import mobilenetv2
@@ -142,6 +142,38 @@ class Res2Net_Encoder(nn.Module):
 
         return low_level, x
 
+class ConvNeXt(nn.Module):
+    def __init__(self, downsample_factor=16, pretrained=False):
+        super().__init__()
+        # 初始化ConvNeXt基础模型（基于torchvision官方实现）
+        model = convnext_base(weights=ConvNeXt_Base_Weights.IMAGENET1K_V1 if pretrained else None)
+
+        # 修正特征阶段划分方式
+        self.stage1 = nn.Sequential(
+            model.features[0],  # 初始4x4卷积下采样
+            model.features[1]  # 直接使用完整Stage1特征
+        )
+        self.stage2 = model.features[2]
+        self.stage3 = model.features[3]
+        self.stage4 = model.features[4]
+
+        # 通道适配模块（关键设计点）
+        self.adjust_low = nn.Sequential(
+            nn.Conv2d(128, 12, 1),  # Stage1输出通道调整
+        )
+        self.adjust_high = nn.Sequential(
+            nn.Conv2d(512, 96, 1),  # Stage4输出通道调整
+        )
+
+    def forward(self, x):
+        # 四阶段特征提取
+        s1 = self.stage1(x)  # [B,128,H/4,W/4]
+        s2 = self.stage2(s1)  # [B,256,H/8,W/8]
+        s3 = self.stage3(s2)  # [B,512,H/16,W/16]
+        s4 = self.stage4(s3)  # [B,768,H/32,W/32]
+
+        # 通道调整与特征选择
+        return self.adjust_low(s1), self.adjust_high(s4)
 
 # train
 class ResNeXtEncoder(nn.Module):
@@ -755,6 +787,10 @@ class DeepLab(nn.Module):
             low_level_channels = 12  # 对应stage1输出通道
         elif backbone == "swintransformer":
             self.backbone = SwinTransformer_Encoder()
+            in_channels = 96  # 对应stage4输出通道
+            low_level_channels = 12  # 对应stage1输出通道
+        elif backbone == "convnext":
+            self.backbone = ConvNeXt()
             in_channels = 96  # 对应stage4输出通道
             low_level_channels = 12  # 对应stage1输出通道
         else:
