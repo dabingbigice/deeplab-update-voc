@@ -142,6 +142,7 @@ class Res2Net_Encoder(nn.Module):
 
         return low_level, x
 
+
 class ConvNeXt(nn.Module):
     def __init__(self, downsample_factor=16, pretrained=False):
         super().__init__()
@@ -174,6 +175,7 @@ class ConvNeXt(nn.Module):
 
         # 通道调整与特征选择
         return self.adjust_low(s1), self.adjust_high(s4)
+
 
 # train
 class ResNeXtEncoder(nn.Module):
@@ -378,8 +380,6 @@ class MobileNetV2(nn.Module):
         x = self.adjust_x(x)
         low_level_features = self.adjust_low(low_level_features)
         return low_level_features, x
-
-
 
 
 def patch_divide(x, step, ps):
@@ -644,8 +644,127 @@ class ASPP_group_point_conv_concat_before(nn.Module):
 
         return x1 + self.act(x1) * self.act(self.fusion(concat_feat))
 
+class ASPP_WT_star(nn.Module):
+    def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
+        super().__init__()
+        self.dim_in = dim_in
+        self.dim_out = dim_out
 
+        # --------------------------------
+        # 分支1: 1x1卷积 + 通道调整
+        # --------------------------------
+        self.branch1 = nn.Sequential(
+            # 新增通道调整层 ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, bias=False),
+            nn.BatchNorm2d(dim_out),
+            nn.ReLU(inplace=True),
+        )
 
+        # --------------------------------
+        # 分支2: 3x3卷积 + 通道调整
+        # --------------------------------
+        self.branch2 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=3),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支3: 5x5卷积 + 通道调整
+        # --------------------------------
+        self.branch3 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=5),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支4: 7x7卷积 + 通道调整
+        # --------------------------------
+        self.branch4 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=7),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 分支4: 9x9卷积 + 通道调整
+
+        # --------------------------------
+        self.branch5 = nn.Sequential(
+            WTConv2d(in_channels=dim_in, out_channels=dim_in, kernel_size=9),
+            nn.BatchNorm2d(dim_in, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+            # 确保输出通道为dim_out ↓↓↓
+            nn.Conv2d(dim_in, dim_out, 1, groups=2, bias=False),
+            ChannelShuffle(groups=2),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+
+        # --------------------------------
+        # 融合层（输入通道应为dim_out*5=1280）
+        # --------------------------------
+        self.fusion = nn.Sequential(
+            nn.Conv2d(dim_out * 5, dim_out, 1, bias=False),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+        self.act = nn.ReLU6(inplace=False)
+        self.adjust1 = nn.Conv2d(dim_out, dim_out, 1)
+        self.adjust2 = nn.Conv2d(dim_out, dim_out, 1)
+
+        self.adjustx = nn.Conv2d(dim_in, dim_out, 1)
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+
+        # 分支1处理流程
+        branch1_out = self.branch1(x)
+
+        # 分支2处理流程
+        branch2_out = self.branch2(x)
+
+        # 分支3处理流程
+        branch3_out = self.branch3(x)
+
+        # 分支4处理流程
+        branch4_out = self.branch4(x)
+
+        # 分支5处理流程
+        branch5_out = self.branch5(x)
+
+        # 特征拼接与融合
+        concat_feat = torch.cat([
+            branch1_out,
+            branch2_out,
+            branch3_out,
+            branch4_out,
+            branch5_out,
+        ], dim=1)
+        fusion = self.fusion(concat_feat)
+
+        x1 = self.adjust1(fusion)
+        x2 = self.adjust2(fusion)
+
+        x = self.adjustx(x)
+
+        return x + self.act(x1) * self.act(x2)
 
 class GhostModule(nn.Module):
     def __init__(self, inp, oup, kernel_size=1, ratio=2, dw_size=3, stride=1):
@@ -678,6 +797,8 @@ class GhostModule(nn.Module):
 
 
 import math
+
+
 class GhostNet(nn.Module):
     def __init__(self, downsample_factor=8, pretrained=False):
         super().__init__()
@@ -804,8 +925,7 @@ class DeepLab(nn.Module):
         #     LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
         # )
 
-        self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-
+        self.aspp = ASPP_WT_star(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # ----------------------------------#
         #   浅层特征边
