@@ -644,7 +644,7 @@ class ASPP_group_point_conv_concat_before(nn.Module):
 
         return x1 + self.act(x1) * self.act(self.fusion(concat_feat))
 
-class ASPP_WT_star(nn.Module):
+class ASPP_WT_star_x1_x2(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
         super().__init__()
         self.dim_in = dim_in
@@ -1040,7 +1040,8 @@ class DeepLab(nn.Module):
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_WT_star(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        self.aspp = ASPP_WT(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        # self.aspp = ASPP_WT(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_WT_star_x1_x2(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # ----------------------------------#
         #   浅层特征边
