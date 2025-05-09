@@ -1034,14 +1034,14 @@ class DeepLab(nn.Module):
         #   ASPP特征提取模块
         #   利用不同膨胀率的膨胀卷积进行特征提取
         # -----------------------------------------#
-        # self.aspp_lrsa = nn.Sequential(
-        #     LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
-        # )
+        self.aspp_lrsa = nn.Sequential(
+            LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
+        )
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        self.aspp = ASPP_WT_star_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        # self.aspp = ASPP_WT_star_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_WT(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        # self.aspp = ASPP_WT_star_x1_x2(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_WT_star_x1_x2(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # ----------------------------------#
         #   浅层特征边
@@ -1089,7 +1089,7 @@ class DeepLab(nn.Module):
         # -----------------------------------------#
         low_level_features, x = self.backbone(x)
 
-        # x = self.aspp_lrsa(x)
+        x = self.aspp_lrsa(x)
         x = self.aspp(x)
 
         low_level_features = self.shortcut_conv(low_level_features)
