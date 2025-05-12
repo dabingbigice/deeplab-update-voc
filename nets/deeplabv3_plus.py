@@ -964,7 +964,7 @@ class ASPP_star_x_x1(nn.Module):
         self.branch5_bn = nn.BatchNorm2d(dim_out, momentum=bn_mom)
         self.branch5_relu = nn.ReLU(inplace=True)
 
-        self.conv_cat = nn.Sequential(
+        self.fusion = nn.Sequential(
             nn.Conv2d(dim_out * 5, dim_out, 1, 1, padding=0, bias=True),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
