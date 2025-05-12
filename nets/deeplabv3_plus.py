@@ -939,7 +939,7 @@ class ASPP(nn.Module):
         return result
 class ASPP_star_x_x1(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
-        super(ASPP, self).__init__()
+        super(ASPP_star_x_x1, self).__init__()
         self.branch1 = nn.Sequential(
             nn.Conv2d(dim_in, dim_out, 1, 1, padding=0, dilation=rate, bias=True),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
