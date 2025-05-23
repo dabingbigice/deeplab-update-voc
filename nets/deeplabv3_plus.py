@@ -523,12 +523,6 @@ class ChannelShuffle(nn.Module):
         return x.reshape(b, c, h, w)
 
 
-
-
-
-
-
-
 class ASPP_WT_star_x_x1(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
         super().__init__()
@@ -605,7 +599,15 @@ class ASPP_WT_star_x_x1(nn.Module):
         # --------------------------------
         # 融合层（输入通道应为dim_out*5=1280）
         # --------------------------------
-        self.fusion = nn.Sequential(
+        # --------------------------------
+        # 融合层（输入通道应为dim_out*5=1280）
+        # --------------------------------
+        self.fusion1 = nn.Sequential(
+            nn.Conv2d(dim_out * 5, dim_out, 1, bias=False),
+            nn.BatchNorm2d(dim_out, momentum=bn_mom),
+            nn.ReLU(inplace=True),
+        )
+        self.fusion2 = nn.Sequential(
             nn.Conv2d(dim_out * 5, dim_out, 1, bias=False),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
@@ -641,8 +643,13 @@ class ASPP_WT_star_x_x1(nn.Module):
         ], dim=1)
 
         x1 = self.adjust(x)
+        star_1 = self.fusion1(concat_feat)
+        star_2 = self.fusion2(concat_feat)
+        x2 = self.act(star_1) * star_2
+        return x1 + x2
 
-        return x1 + self.act(x1) * self.act(self.fusion(concat_feat))
+        # return x1 + self.act(x1) * self.act(self.fusion(concat_feat))
+
 
 class ASPP_WT_star_x1_x2(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
@@ -766,6 +773,7 @@ class ASPP_WT_star_x1_x2(nn.Module):
 
         return x + self.act(x1) * self.act(x2)
 
+
 class ASPP_WT(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.9):
         super().__init__()
@@ -848,7 +856,6 @@ class ASPP_WT(nn.Module):
             nn.ReLU(inplace=True),
         )
 
-
     def forward(self, x):
         b, c, h, w = x.size()
 
@@ -878,6 +885,8 @@ class ASPP_WT(nn.Module):
         fusion = self.fusion(concat_feat)
 
         return fusion
+
+
 class ASPP(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
         super(ASPP, self).__init__()
@@ -937,6 +946,8 @@ class ASPP(nn.Module):
         feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3, global_feature], dim=1)
         result = self.conv_cat(feature_cat)
         return result
+
+
 class ASPP_star_x_x1(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
         super(ASPP_star_x_x1, self).__init__()
@@ -1000,6 +1011,44 @@ class ASPP_star_x_x1(nn.Module):
         x1 = self.adjust(x)
 
         return x1 + self.act(x1) * self.act(self.fusion(feature_cat))
+
+
+import matplotlib.pyplot as plt
+import torch
+
+
+def visualize_feature_maps(feature_tensor, title, n_cols=8):
+    """
+    可视化特征图
+    :param feature_tensor: 四维张量 [batch, channels, H, W]
+    :param title: 图像标题
+    :param n_cols: 每行显示的通道数
+    """
+    # 转换为CPU并解除梯度追踪
+    features = feature_tensor.detach().cpu()
+
+    # 获取第一个样本的特征图
+    batch_first = features[0]
+
+    # 计算显示参数
+    n_channels = batch_first.size(0)
+    n_rows = (n_channels + n_cols - 1) // n_cols
+
+    # 创建画布
+    plt.figure(figsize=(20, 2 * n_rows))
+    plt.suptitle(title, y=1.02, fontsize=16)
+
+    # 绘制每个通道
+    for idx in range(n_channels):
+        plt.subplot(n_rows, n_cols, idx + 1)
+        channel = batch_first[idx]
+        plt.imshow(channel, cmap='viridis')
+        plt.axis('off')
+        plt.title(f'ch{idx}', fontsize=8)
+
+    plt.tight_layout()
+    plt.show()
+
 
 class GhostModule(nn.Module):
     def __init__(self, inp, oup, kernel_size=1, ratio=2, dw_size=3, stride=1):
@@ -1078,11 +1127,17 @@ class GhostNet(nn.Module):
     def forward(self, x):
         # 低级特征提取（前3个模块）
         low_level_features = self.features[:3](x)  # 输出通道24
+        # 可视化各阶段特征
+        with torch.no_grad():
+            visualize_feature_maps(low_level_features, "Low Level Features")
         # 高级特征提取（剩余模块）
         x = self.features[3:](low_level_features)  # 输出通道320
         # 通道调整
         x = self.adjust_x(x)
         low_level_features = self.adjust_low(low_level_features)
+        # 可视化最终输出
+        with torch.no_grad():
+            visualize_feature_maps(x, "High Level Features")
         return low_level_features, x
 
 
@@ -1161,8 +1216,8 @@ class DeepLab(nn.Module):
         )
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        # self.aspp = ASPP_WT_star_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        self.aspp = ASPP_star_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_WT_star_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        # self.aspp = ASPP_star_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_WT_star_x1_x2(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         #
@@ -1176,43 +1231,43 @@ class DeepLab(nn.Module):
 
         )
         # 普通3*3卷积
-        self.cat_conv = nn.Sequential(
-            nn.Conv2d(152, 256, 3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-
-            nn.Conv2d(256, 128, 3, stride=1, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-
-            nn.Dropout(0.1),
-        )
         # self.cat_conv = nn.Sequential(
-        #     # --------------------------------
-        #     # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
-        #     # --------------------------------
-        #     # 深度卷积（空洞率=2）
-        #     WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
-        #     # Depthwise卷积[1,6](@ref)
-        #     nn.BatchNorm2d(152),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+        #     nn.Conv2d(152, 256, 3, stride=1, padding=1),
         #     nn.BatchNorm2d(256),
         #     nn.ReLU(inplace=True),
-        #     # --------------------------------
-        #     # 第二个融合块：深度可分离卷积 + 空洞卷积
-        #     # --------------------------------
-        #     # 深度卷积（空洞率=4）
-        #     WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
-        #     # 更高空洞率[9,11](@ref)
-        #     nn.BatchNorm2d(256),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+        #     nn.Dropout(0.5),
+        #
+        #     nn.Conv2d(256, 128, 3, stride=1, padding=1),
         #     nn.BatchNorm2d(128),
         #     nn.ReLU(inplace=True),
-        #     nn.Dropout(0.1)
+        #
+        #     nn.Dropout(0.1),
         # )
+        self.cat_conv = nn.Sequential(
+            # --------------------------------
+            # 第一个融合块：深度可分离卷积 + 空洞卷积 + ECA
+            # --------------------------------
+            # 深度卷积（空洞率=2）
+            WTConv2d(in_channels=152, out_channels=152, kernel_size=3),
+            # Depthwise卷积[1,6](@ref)
+            nn.BatchNorm2d(152),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(152, 256, kernel_size=1, groups=2, bias=False),  # Pointwise分组卷积[6,8](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            # --------------------------------
+            # 第二个融合块：深度可分离卷积 + 空洞卷积
+            # --------------------------------
+            # 深度卷积（空洞率=4）
+            WTConv2d(in_channels=256, out_channels=256, kernel_size=3),
+            # 更高空洞率[9,11](@ref)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 128, kernel_size=1, groups=2, bias=False),  # 更大分组数[5,7](@ref)
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1)
+        )
 
         self.cls_conv = nn.Conv2d(128, num_classes, 1)
 
