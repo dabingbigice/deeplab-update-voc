@@ -785,7 +785,7 @@ class GhostNet(nn.Module):
 
 class ASPP(nn.Module):
     def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
-        super(ASPP_x_x1, self).__init__()
+        super().__init__()
         self.branch1 = nn.Sequential(
             nn.Conv2d(dim_in, dim_out, 1, 1, padding=0, dilation=rate, bias=True),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
@@ -810,7 +810,7 @@ class ASPP(nn.Module):
         self.branch5_bn = nn.BatchNorm2d(dim_out, momentum=bn_mom)
         self.branch5_relu = nn.ReLU(inplace=True)
 
-        self.fusion = nn.Sequential(
+        self.conv_cat = nn.Sequential(
             nn.Conv2d(dim_out * 5, dim_out, 1, 1, padding=0, bias=True),
             nn.BatchNorm2d(dim_out, momentum=bn_mom),
             nn.ReLU(inplace=True),
@@ -841,7 +841,7 @@ class ASPP(nn.Module):
         # -----------------------------------------#
         concat_feat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3, global_feature], dim=1)
 
-        return self.fusion(concat_feat)
+        return self.conv_cat(concat_feat)
 
 
 class ASPP_x_x1(nn.Module):
@@ -1348,10 +1348,10 @@ class DeepLab(nn.Module):
         )
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        self.aspp = ASPP_wt_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        # self.aspp = ASPP_wt_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        # self.aspp = ASPP_wt(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_wt(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_no_start(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # self.aspp_last_concat_fusion = nn.Sequential(
