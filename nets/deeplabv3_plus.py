@@ -1343,15 +1343,15 @@ class DeepLab(nn.Module):
         #   ASPP特征提取模块
         #   利用不同膨胀率的膨胀卷积进行特征提取
         # -----------------------------------------#
-        self.aspp_lrsa = nn.Sequential(
-            LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
-        )
+        # self.aspp_lrsa = nn.Sequential(
+        #     LRSA(in_channels, qk_dim=32, mlp_dim=64, ps=16),
+        # )
 
         # self.aspp = ASPP_group_point_conv_concat_before(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        # self.aspp = ASPP_wt_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        self.aspp = ASPP_wt_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_x_x1(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
-        self.aspp = ASPP_wt(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
+        # self.aspp = ASPP_wt(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
         # self.aspp = ASPP_no_start(dim_in=in_channels, dim_out=128, rate=16 // downsample_factor)
 
         # self.aspp_last_concat_fusion = nn.Sequential(
@@ -1417,7 +1417,7 @@ class DeepLab(nn.Module):
         # -----------------------------------------#
         low_level_features, x = self.backbone(x)
 
-        x = self.aspp_lrsa(x)
+        # x = self.aspp_lrsa(x)
         x = self.aspp(x)
         # x = torch.cat([x_aspp_before, x], dim=1)
         # x = self.aspp_last_concat_fusion(x)
